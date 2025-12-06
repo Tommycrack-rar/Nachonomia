@@ -1,0 +1,401 @@
+/* Importacion de Fuentes */
+@import url('https://fonts.googleapis.com/css2?family=Stardos+Stencil:wght@400;700&family=Roboto+Mono:wght@400;700&family=Press+Start+2P&display=swap');
+
+/* Colores de la paleta */
+:root {
+    /* Fondo y Mapa */
+    --color-beige-claro: #F0EADC;
+    --color-verde-musgo: #6A8553;
+    --color-gris-pizarra: #8C928A;
+    --color-verde-oscuro: #3A4D34; /* Fondo Barra Lateral */
+    
+    /* UI y Texto */
+    --color-dorado: #D4AF37;
+    --color-blanco-hueso: #F8F1E7;
+    --color-rojo-carmesi: #B22222; /* Ataque */
+    --color-azul-cobalto: #0047AB; /* Defensa */
+    --color-naranja-quemado: #CC5500; /* Moneda */
+    --color-amarillo-fin-turno: #FFC300;
+    --color-neutral: #555555;
+    
+    /* Facciones */
+    --color-esmad: #000080;
+    --color-capuchos: #8B0000;
+    --color-minga: #006400;
+    --color-neutro: #8C928A;
+}
+
+/* Base */
+body {
+    font-family: 'Roboto Mono', monospace;
+    background-color: var(--color-beige-claro);
+    color: var(--color-blanco-hueso);
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    overflow: hidden;
+}
+
+h1, h2, h3 {
+    font-family: 'Stardos Stencil', cursive;
+    color: var(--color-dorado);
+}
+
+/* Contenedor Principal y Área de Juego */
+#game-container {
+    width: 1216px; /* Ancho total (Mapa: 920 + Panel: 296) */
+    height: 880px;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+    position: relative;
+    /* La imagen de fondo cubre todo el contenedor, incluyendo la barra lateral */
+    background-image: url('assets/mapa_base.jpg');
+    background-size: 1216px 880px; 
+    background-position: left top;
+    overflow: hidden;
+}
+
+#game-area {
+    position: relative;
+    width: 1216px;
+    height: 880px;
+}
+
+/* Lienzo de Conexiones */
+#connection-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1; /* Bajo los nodos */
+}
+
+/* Nodos (Hexágonos) */
+.node {
+    position: absolute;
+    width: 48px;
+    height: 48px;
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: background-color 0.3s ease, transform 0.1s ease;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    z-index: 10;
+}
+
+.node:hover {
+    transform: scale(1.05);
+    filter: brightness(1.2);
+}
+
+.node.selected {
+    box-shadow: 0 0 15px 5px var(--color-dorado);
+}
+
+.node-troop-count {
+    font-family: 'Press Start 2P', cursive;
+    font-size: 14px;
+    color: var(--color-blanco-hueso);
+    z-index: 10;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.node-icon {
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    z-index: 5;
+}
+
+/* Tooltip (Nombre de Zona) */
+.node-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.7);
+    color: var(--color-blanco-hueso);
+    padding: 5px 10px;
+    border-radius: 3px;
+    font-size: 12px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    font-family: 'Roboto Mono', monospace;
+    z-index: 100;
+}
+
+.node:hover .node-tooltip {
+    opacity: 1;
+}
+
+/* Colores de Facciones para Nodos */
+.ESMAD { background-color: rgba(0, 0, 128, 0.5); border-color: var(--color-esmad); }
+.Capuchos { background-color: rgba(139, 0, 0, 0.5); border-color: var(--color-capuchos); }
+.Minga { background-color: rgba(0, 100, 0, 0.5); border-color: var(--color-minga); }
+.Neutral { background-color: rgba(140, 146, 138, 0.3); border-color: var(--color-neutro); }
+
+/* Indicador de Turno */
+#turn-indicator {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: var(--color-blanco-hueso);
+    padding: 10px 15px;
+    border-radius: 5px;
+    text-align: center;
+    width: 200px;
+    z-index: 50;
+    border: 2px solid var(--color-dorado);
+}
+#turn-text { font-size: 16px; font-weight: bold; }
+#turn-counter { font-size: 20px; color: var(--color-dorado); font-family: 'Press Start 2P', cursive; }
+
+/* Panel de Control (Posicionado a la derecha del mapa) */
+#control-panel {
+    position: absolute;
+    top: 0;
+    left: 920px; /* Inicia donde termina el mapa (920px) */
+    width: 296px; /* 1216px - 920px = 296px */
+    height: 880px;
+    /* Fondo oscuro semitransparente sobre el área de la barra lateral de la imagen de fondo */
+    background-color: rgba(58, 77, 52, 0.8); 
+    padding: 15px;
+    box-sizing: border-box;
+    overflow-y: auto;
+    border-left: 3px solid var(--color-dorado);
+    z-index: 20;
+}
+
+.panel-section {
+    background-color: rgba(0, 0, 0, 0.3);
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 5px;
+}
+
+#faction-info {
+    text-align: center;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+#faction-icon { width: 64px; height: 64px; margin-bottom: 5px; }
+
+/* Recursos */
+.resource-icon { width: 24px; height: 24px; vertical-align: middle; }
+#current-money { 
+    font-family: 'Press Start 2P', cursive; 
+    font-size: 18px; 
+    color: var(--color-naranja-quemado);
+}
+
+/* Botones de Acciones */
+.action-item {
+    margin-bottom: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 5px;
+    border-radius: 3px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+}
+.action-btn {
+    width: 150px;
+    height: 40px;
+    border: none;
+    color: white;
+    font-family: 'Stardos Stencil', cursive;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background-color 0.1s, box-shadow 0.3s;
+    margin-right: 10px;
+}
+.action-btn:hover:not(:disabled) {
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+}
+.action-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.attack-color { background-color: var(--color-rojo-carmesi); }
+.defend-color { background-color: var(--color-azul-cobalto); }
+.produce-color { background-color: var(--color-minga); }
+
+.action-level {
+    font-family: 'Press Start 2P', cursive;
+    color: var(--color-dorado);
+    margin: 0;
+}
+.upgrade-action-btn, .upgrade-btn {
+    background-color: var(--color-naranja-quemado);
+    color: var(--color-blanco-hueso);
+    border: none;
+    padding: 5px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.2s;
+    width: 100%;
+    margin-top: 5px;
+}
+.upgrade-action-btn:hover:not(:disabled), .upgrade-btn:hover:not(:disabled) {
+    background-color: #ff8c00;
+}
+.upgrade-cost {
+    font-size: 11px;
+    color: var(--color-dorado);
+    text-align: center;
+    margin: 3px 0 0 0;
+}
+
+/* Habilidad (Carta) */
+.skill-card {
+    width: 90px;
+    height: 120px;
+    background-color: rgba(0, 0, 0, 0.5);
+    border: 2px solid var(--color-esmad); /* Se cambia por JS */
+    border-radius: 5px;
+    text-align: center;
+    margin: 0 auto;
+    position: relative;
+    cursor: pointer;
+}
+.skill-card.available {
+    box-shadow: 0 0 15px 5px var(--color-dorado);
+}
+.skill-card-icon {
+    width: 64px;
+    height: 64px;
+    margin-top: 10px;
+}
+.skill-cooldown-text {
+    position: absolute;
+    bottom: 5px;
+    width: 100%;
+    font-size: 10px;
+    color: var(--color-blanco-hueso);
+    font-family: 'Press Start 2P', cursive;
+}
+
+/* Botón de Terminar Turno */
+.end-turn-btn {
+    width: 260px;
+    height: 50px;
+    background-color: var(--color-amarillo-fin-turno);
+    color: #333;
+    border: none;
+    font-family: 'Stardos Stencil', cursive;
+    font-size: 20px;
+    cursor: pointer;
+    border-radius: 5px;
+    margin-top: 20px;
+    transition: background-color 0.2s;
+}
+.end-turn-btn:hover {
+    background-color: #FFEB3B;
+}
+
+/* Overlay de Inicio/Fin de Juego */
+.overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 200;
+    text-align: center;
+}
+.overlay h1 { font-size: 40px; }
+#faction-selection button {
+    padding: 15px 30px;
+    margin: 10px;
+    background-color: var(--color-azul-cobalto);
+    color: var(--color-blanco-hueso);
+    border: 2px solid var(--color-dorado);
+    cursor: pointer;
+    font-size: 20px;
+    font-family: 'Stardos Stencil', cursive;
+    border-radius: 5px;
+}
+.hidden { display: none !important; }
+
+
+/* Animaciones de Habilidad */
+.skill-animation {
+    position: absolute;
+    z-index: 100;
+    width: 64px;
+    height: 64px;
+    opacity: 0;
+    animation-timing-function: ease-out;
+}
+/* Animación de Conquista */
+@keyframes flash-conquer {
+    0% { box-shadow: 0 0 20px 5px white; }
+    50% { box-shadow: 0 0 20px 10px var(--color-dorado); }
+    100% { box-shadow: none; }
+}
+.conquered-animation {
+    animation: flash-conquer 0.5s ease-out;
+}
+
+#node-tooltip {
+    position: absolute;
+    background-color: rgba(0, 0, 0, 0.85);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 5px;
+    font-size: 14px;
+    z-index: 1000; /* Asegura que esté sobre otros elementos */
+    pointer-events: none; /* Crucial para no interferir con los clics */
+    line-height: 1.4;
+    min-width: 150px;
+}
+
+#node-tooltip.hidden {
+    display: none;
+}
+
+#node-tooltip strong {
+    color: #ffcc00; /* Color distintivo para valores */
+}
+
+/* Estilos internos del tooltip */
+#node-tooltip p {
+    margin: 0;
+    padding: 2px 0;
+}
+
+/* 1. Definición del efecto de pulso para la selección */
+@keyframes node-pulse {
+    0% { transform: scale(1); box-shadow: 0 0 5px rgba(255, 255, 0, 0.6); }
+    50% { transform: scale(1.1); box-shadow: 0 0 15px rgba(255, 255, 0, 1); }
+    100% { transform: scale(1); box-shadow: 0 0 5px rgba(255, 255, 0, 0.6); }
+}
+
+/* 2. Clase que aplica la animación al nodo seleccionado */
+.node.selected {
+    /* Mantiene el borde de selección estático (del código anterior) */
+    border: 3px solid #FFD700; 
+    
+    /* Aplica la animación */
+    animation: node-pulse 1.5s infinite ease-in-out;
+    
+    /* Asegura que el nodo animado esté sobre otros elementos */
+    z-index: 500; 
+}

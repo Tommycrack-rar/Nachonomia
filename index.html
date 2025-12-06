@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UNAL: Lucha por el Territorio</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Stardos+Stencil:wght@400;700&family=Roboto+Mono:wght@400;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="start-screen" class="overlay">
+            <h1>UNAL: Lucha por el Territorio</h1>
+            <p>Selecciona tu Faccion:</p>
+            <div id="faction-selection">
+                <button class="faction-btn" data-faction="ESMAD">🛡️ ESMAD</button>
+                <button class="faction-btn" data-faction="Capuchos">🔥 Capuchos</button>
+                <button class="faction-btn" data-faction="Minga">✊ Minga</button>
+            </div>
+        </div>
+
+        <div id="game-area">
+            
+            <canvas id="connection-canvas" width="920" height="880"></canvas>
+            
+            <div id="turn-indicator">
+                <span id="turn-text">Esperando...</span>
+                <span id="turn-counter">T: 0</span>
+            </div>
+            
+            <div id="control-panel">
+                <div id="faction-info">
+                    <img id="faction-icon" src="" alt="Icono de Faccion">
+                    <h2 id="player-faction-name"></h2>
+                </div>
+                
+            <div id="actions-left-container" class="panel-section">
+                <h3>Acciones Restantes: <span id="actions-left-display">0</span></h3>
+            </div>
+
+                <div class="panel-section">
+                    <h3>💰 Recursos</h3>
+                    <p>
+                        <img src="assets/coin_icon.png" alt="Moneda" class="resource-icon">
+                        <span id="current-money">0</span>
+                    </p>
+                </div>
+
+                <div class="panel-section">
+                    <h3>⚙️ Tropas (<span id="troop-level-display">Nivel 1</span>)</h3>
+                    <div id="troop-stats">
+                        <p>Vida Base: <span id="stat-vida"></span></p>
+                        <p>Ataque Base: <span id="stat-ataque"></span></p>
+                        <p>Espacio Base: <span id="stat-espacio"></span></p>
+                    </div>
+                    <button id="upgrade-troop-btn" class="upgrade-btn">Mejorar Tropa (Max N10)</button>
+                    <p class="upgrade-cost" id="troop-upgrade-cost"></p>
+                </div>
+
+                <div class="panel-section">
+                    <h3>🛠️ Acciones</h3>
+                    <div id="action-list">
+                        <div class="action-item">
+                            <button id="action-attack-btn" class="action-btn attack-color">Ataque</button>
+                            <p class="action-level" id="level-attack">N1</p>
+                            <button class="upgrade-action-btn" data-action="attack">Mejorar (Max N3)</button>
+                            <p class="upgrade-cost" id="attack-upgrade-cost"></p>
+                        </div>
+                        <div class="action-item">
+                            <button id="action-defend-btn" class="action-btn defend-color">Defensa</button>
+                            <p class="action-level" id="level-defend">N1</p>
+                            <button class="upgrade-action-btn" data-action="defend">Mejorar (Max N3)</button>
+                            <p class="upgrade-cost" id="defend-upgrade-cost"></p>
+                        </div>
+                        <div class="action-item">
+                            <button id="action-produce-btn" class="action-btn produce-color">Producir</button>
+                            <p class="action-level" id="level-produce">N1</p>
+                            <button class="upgrade-action-btn" data-action="produce">Mejorar (Max N3)</button>
+                            <p class="upgrade-cost" id="produce-upgrade-cost"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h3>⚡ Habilidad</h3>
+                    <div id="skill-card-container">
+                        <div id="skill-card" class="skill-card">
+                            </div>
+                    </div>
+                </div>
+
+                <button id="end-turn-btn" class="end-turn-btn">Terminar Turno</button>
+            </div>
+            
+        </div>
+        
+        <div id="end-game-screen" class="overlay hidden">
+            <h1 id="end-game-message"></h1>
+            <button onclick="window.location.reload()">Jugar de Nuevo</button>
+        </div>
+        
+        <div id="node-tooltip" class="hidden">
+        </div>
+    
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
