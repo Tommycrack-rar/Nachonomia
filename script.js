@@ -71,8 +71,11 @@ const FACTIONS = {
             cooldown: 2,
             effect: 'Aumenta el ataque en un 50% por este turno.',
             icon: 'assets/esmad_skill.png',
-            trigger: 'defend' 
-        }
+            trigger: 'defend',
+            // 🚩 DESCRIPCIÓN MOVIDA AQUÍ para el Tooltip
+            description: "Otorga un aumento significativo al ataque del nodo seleccionado para el siguiente combate."
+        },
+        // Se elimina la propiedad description de este nivel
     },
     'Capuchos': {
         color: 'var(--color-capuchos)',
@@ -85,8 +88,11 @@ const FACTIONS = {
             cooldown: 3,
             effect: 'Reduce el daño del siguiente ataque recibido en un 50% (en el nodo objetivo).',
             icon: 'assets/capuchos_skill.png',
-            trigger: 'attack' 
-        }
+            trigger: 'attack',
+            // 🚩 DESCRIPCIÓN MOVIDA AQUÍ para el Tooltip
+            description: "Activa un escudo defensivo en el nodo seleccionado, negando el daño del primer ataque enemigo."
+        },
+        // Se elimina la propiedad description de este nivel
     },
     'Minga': {
         color: 'var(--color-minga)',
@@ -99,11 +105,13 @@ const FACTIONS = {
             cooldown: 4,
             effect: 'Duplica las tropas de un nodo (hasta el límite de espacio).',
             icon: 'assets/minga_skill.png',
-            trigger: 'produce' 
-        }
+            trigger: 'produce',
+            // 🚩 DESCRIPCIÓN MOVIDA AQUÍ para el Tooltip
+            description: "Duplica las tropas en el nodo seleccionado, limitado por el espacio máximo del nodo."
+        },
+        // Se elimina la propiedad description de este nivel
     }
 };
-
 const INITIAL_MONEY = 0;
 const TROOP_UPGRADE_COST = 20;
 const ACTION_UPGRADE_COSTS = [15, 30]; // N1 -> N2 (15), N2 -> N3 (30)
@@ -813,7 +821,29 @@ function handleNodeClick(nodeId) {
     // --- TRANSFERENCIA DE TROPAS ---
     if (targetNode.owner === gameState.playerFaction) {
         
-        // ... Lógica de transferencia y prompt ... (No necesita cambio aquí)
+        const maxTransfer = sourceNode.troops - 1;
+        let transferCompleted = false; // Flag para rastrear si la transferencia se hizo
+
+        if (maxTransfer <= 0) {
+            displayMessage("No hay tropas suficientes para transferir. Necesitas al menos 2.", 'error');
+        } else {
+            // Usamos un try/catch para manejar mejor la cancelación o errores del prompt
+            try {
+                let transferAmount = prompt(`¿Cuántas tropas deseas mover de ${sourceNode.name} a ${targetNode.name}? (Máximo: ${maxTransfer})`);
+                transferAmount = parseInt(transferAmount);
+
+                if (!isNaN(transferAmount) && transferAmount > 0 && transferAmount <= maxTransfer) {
+                    executeTransfer(sourceNode, targetNode, transferAmount);
+                    transferCompleted = true;
+                } else if (transferAmount !== null) { // Si no es null (no se canceló) pero es inválido
+                    displayMessage("Transferencia cancelada o cantidad inválida.", 'warning');
+                }
+            } catch (e) {
+                // Capturar errores del prompt (aunque es raro)
+                console.error("Error durante el prompt de transferencia:", e);
+                displayMessage("Error al procesar la transferencia.", 'error');
+            }
+        }
         
         // Finalizar la interacción de transferencia
         sourceNode.element.classList.remove('selected'); // ✅ Deselección aquí
@@ -1128,7 +1158,8 @@ function updateUI() {
     const faction = gameState.playerFaction;
     const factionData = FACTIONS[faction];
     const skill = factionData.skill;
-
+    const skillCardEl = document.getElementById('skill-card');
+    
     // Info General
     document.getElementById('faction-icon').src = `assets/faccion_${faction.toLowerCase()}.png`;
     document.getElementById('player-faction-name').textContent = factionData.name;
@@ -1166,19 +1197,54 @@ function updateUI() {
         }
     });
 
-    // Habilidad
-    const skillCardEl = document.getElementById('skill-card');
+    // ------------------------------------------------------------------
+    // Habilidad (Incluyendo la lógica de Tooltip/Hover)
+    // ------------------------------------------------------------------
+    
+    // Actualizar el contenido visual de la tarjeta de habilidad
     skillCardEl.style.borderColor = factionData.color;
     skillCardEl.innerHTML = `
-        <img class="skill-card-icon" src="${skill.icon}" alt="Habilidad">
+        <img id="skill-icon-img" class="skill-card-icon" src="${skill.icon}" alt="Habilidad">
         <div class="skill-cooldown-text">C: ${gameState.skillCooldown}</div>
     `;
     skillCardEl.className = `skill-card ${gameState.skillCooldown === 0 ? 'available' : ''}`;
     
-    // Solo asignar el listener una vez
+    // Solo asignar el listener de clic UNA VEZ.
     if (!skillCardEl.dataset.listener) {
         skillCardEl.addEventListener('click', handleSkillUse);
         skillCardEl.dataset.listener = 'true';
+    }
+
+    // --- Lógica de Hover para Tooltip ---
+    // Usamos el contenedor principal skillCardEl para capturar el mouseover/mouseout
+    const tooltipElement = document.getElementById('skill-tooltip'); // Asumiendo que existe
+    
+    if (tooltipElement) {
+        // Adjuntar el evento de hover si aún no se ha hecho
+        if (!skillCardEl.dataset.hoverListener) {
+            
+            skillCardEl.addEventListener('mouseover', function(e) {
+                const skill = FACTIONS[gameState.playerFaction]?.skill;
+                if (skill) {
+                    // Mostrar la descripción
+                    tooltipElement.innerHTML = `
+                        <h4>${skill.name} (${skill.cooldown} turnos)</h4>
+                        <p>${skill.description}</p>
+                    `;
+                    // Posicionar el tooltip cerca del cursor
+                    tooltipElement.style.left = (e.pageX + 15) + 'px';
+                    tooltipElement.style.top = (e.pageY + 15) + 'px';
+                    tooltipElement.classList.remove('hidden');
+                }
+            });
+
+            skillCardEl.addEventListener('mouseout', function() {
+                // Ocultar la descripción
+                tooltipElement.classList.add('hidden');
+            });
+
+            skillCardEl.dataset.hoverListener = 'true';
+        }
     }
 }
 
@@ -1310,3 +1376,36 @@ function executeTransfer(sourceNode, targetNode, amount) {
     updateUI();
     displayMessage(`Transferidos ${actualTransfer} tropas de ${sourceNode.name} a ${targetNode.name}.`, 'success');
 }
+
+// La función updateUI debe asegurarse de que el elemento de la habilidad esté asociado a su evento.
+function setupSkillHover() {
+    const skillElement = document.getElementById('skill-card'); // O el elemento que quieras usar como disparador
+    const tooltipElement = document.getElementById('skill-tooltip');
+    
+    if (!skillElement || !tooltipElement) return;
+
+    // Función que se dispara al pasar el mouse por encima
+    skillElement.onmouseover = function(e) {
+        const faction = gameState.playerFaction;
+        const skill = FACTIONS[faction]?.skill;
+
+        if (skill) {
+            tooltipElement.innerHTML = `
+                <h4>${skill.name} (${skill.cooldown} turnos)</h4>
+                <p>${skill.description}</p>
+            `;
+            // Posicionar el tooltip (ej. a la izquierda o debajo del mouse)
+            tooltipElement.style.left = (e.pageX + 10) + 'px';
+            tooltipElement.style.top = (e.pageY - 10) + 'px';
+            tooltipElement.classList.remove('hidden');
+        }
+    };
+
+    // Función que se dispara al quitar el mouse
+    skillElement.onmouseout = function() {
+        tooltipElement.classList.add('hidden');
+    };
+}
+
+// Llama a esta función al inicio del juego, después de inicializar el HTML y el estado.
+setupSkillHover();
