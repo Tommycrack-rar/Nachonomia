@@ -1,4 +1,13 @@
 
+# NACHONOMIA
+
+🧨**Videojuego de estrategia por turnos inspirado en la Universidad Nacional de Colombia sede Bogota**🧨
+
+**Descripcion🗺️:** NACONOMIA es un juego de estrategia inspirado por turnos 1 vs IA para con la opcion de escopger entre 3 facciones. El objetivo es conquistar todas las zonas o eliminar al oponente, gestionando territorios, recursos y estrategia de manera eficiente.
+
+**Instalacion📄:** En el repositorio de GitHub, descarga mediante el boton Code en la esquina superior derecha, y selecciona descargar el archivo **.zip**
+
+En caso de que no sea posible, descargue los archivos del juego individualmente tal que queden organizados de la siguiente manera:
 BIENVENIDO A NACHONOMÍA
 
 Este es un juego de estrategia por turnos 1 vs IA ambientado en el mapa de la Universidad Nacional representado como un grafo de 17 zonas. 

@@ -1,9 +1,33 @@
-// ====================================================================================
-//                                 CONFIGURACIÓN DEL JUEGO
-// ====================================================================================
+/**
+ * @file script.js
+ * @brief Lógica principal del juego "UNAL: Lucha por el Territorio".
+ *
+ * @details
+ * Este archivo contiene la configuración del mapa (nodos y adyacencias),
+ * definición de facciones, estado global del juego, la clase Node que
+ * maneja la representación de cada nodo, la IA enemiga, la lógica de
+ * turnos, combate, mejoras, habilidades, y la actualización de la UI.
+ *
+ *
+ * @author Juan Bohorquez (jbohorquezsa@unal.edu.co)
+ * @author Julian Quintero (julquinteroca@unal.edu.co)
+ * @author Tomas Suarez (tsuarezl@unal.edu.co)
+ */
 
+/* ========================================================================
+   CONFIGURACIÓN DEL JUEGO
+   ======================================================================== */
+
+/**
+ * @brief Datos estáticos de los nodos del mapa.
+ *
+ * Cada entrada contiene:
+ *  - id: identificador único (string)
+ *  - name: nombre legible
+ *  - x, y: coordenadas en el canvas/área de juego (0..920 aprox.)
+ *  - startNode (opcional): indica nodos de inicio para asignación random
+ */
 const NODE_DATA = [
-    // Se asume que las coordenadas (X, Y) ya están ajustadas al área del mapa (0-920)
     { id: 'artes', name: "Facultad de Artes", x: 712, y: 546 },
     { id: 'ciencias', name: "Facultad de Ciencias", x: 455, y: 522 },
     { id: 'agrarias', name: "Facultad de Cs. Agrarias", x: 350, y: 605 },
@@ -23,8 +47,13 @@ const NODE_DATA = [
     { id: 'la_30', name: "La 30", x: 675, y: 795, startNode: true },
 ];
 
+/**
+ * @brief Lista de adyacencias dirigida (se usará enforceBidirectional
+ *        para convertirla a no dirigida).
+ *
+ * @note Mantener consistencia de ids con NODE_DATA.
+ */
 const ADJACENCY_LIST = {
-    // ... (Lista de Adyacencias sin cambios) ...
     'la_26': ['enfermeria', 'derecho'],
     'la_30': ['economicas', 'politicas'],
     'estadio': ['ingenieria', 'ciencias'],
@@ -44,7 +73,11 @@ const ADJACENCY_LIST = {
     'artes': ['ciencias', 'economicas', 'politicas', 'plaza_che'],
 };
 
-// Asegurar bidireccionalidad de las conexiones (grafo no dirigido)
+/**
+ * @brief Asegura que la lista de adyacencias sea bidireccional.
+ * @param {Object} adjList - Mapa de adyacencia inicial (posiblemente no bidireccional).
+ * @return {Object} nuevo mapa bidireccional.
+ */
 function enforceBidirectional(adjList) {
     const newAdj = {...adjList};
     for (const nodeA in adjList) {
@@ -59,85 +92,118 @@ function enforceBidirectional(adjList) {
 }
 const GAME_ADJACENCY_LIST = enforceBidirectional(ADJACENCY_LIST);
 
+/**
+ * @brief Definición de facciones (datos estáticos).
+ *
+ * Cada facción contiene:
+ *  - color: variable CSS para UI
+ *  - icon: ruta al icono
+ *  - name: nombre legible
+ *  - baseStats: life, attack, space (por tropa / capacidad)
+ *  - skill: objeto con nombre, cooldown, efecto, icon, trigger, description
+ */
 const FACTIONS = {
     'ESMAD': {
         color: 'var(--color-esmad)',
         icon: 'assets/esmad_tanqueta.png',
         name: 'ESMAD',
-        // Vida, Ataque, Espacio
-        baseStats: { life: 20, attack: 10, space: 16 }, 
+        baseStats: { life: 20, attack: 10, space: 16 },
         skill: {
             name: 'Ataque con Tanqueta',
             cooldown: 2,
             effect: 'Aumenta el ataque en un 50% por este turno.',
             icon: 'assets/esmad_skill.png',
             trigger: 'defend',
-            // 🚩 DESCRIPCIÓN MOVIDA AQUÍ para el Tooltip
             description: "Otorga un aumento significativo al ataque del nodo seleccionado para el siguiente combate."
         },
-        // Se elimina la propiedad description de este nivel
     },
     'Capuchos': {
         color: 'var(--color-capuchos)',
         icon: 'assets/capuchos_chaza.png',
         name: 'Capuchos',
-        // Vida, Ataque, Espacio
-        baseStats: { life: 12, attack: 14, space: 20 }, 
+        baseStats: { life: 12, attack: 14, space: 20 },
         skill: {
             name: 'Escudo de Primera Línea',
             cooldown: 3,
             effect: 'Reduce el daño del siguiente ataque recibido en un 50% (en el nodo objetivo).',
             icon: 'assets/capuchos_skill.png',
             trigger: 'attack',
-            // 🚩 DESCRIPCIÓN MOVIDA AQUÍ para el Tooltip
             description: "Activa un escudo defensivo en el nodo seleccionado, negando el daño del primer ataque enemigo."
         },
-        // Se elimina la propiedad description de este nivel
     },
     'Minga': {
         color: 'var(--color-minga)',
         icon: 'assets/minga_carpa.png',
         name: 'Minga',
-        // Vida, Ataque, Espacio
-        baseStats: { life: 10, attack: 10, space: 26 }, 
+        baseStats: { life: 10, attack: 10, space: 26 },
         skill: {
             name: 'Duplicar Tropas',
             cooldown: 4,
             effect: 'Duplica las tropas de un nodo (hasta el límite de espacio).',
             icon: 'assets/minga_skill.png',
             trigger: 'produce',
-            // 🚩 DESCRIPCIÓN MOVIDA AQUÍ para el Tooltip
             description: "Duplica las tropas en el nodo seleccionado, limitado por el espacio máximo del nodo."
         },
-        // Se elimina la propiedad description de este nivel
     }
 };
+
+/** @brief Dinero inicial del jugador. */
 const INITIAL_MONEY = 0;
+/** @brief Costo base para mejorar nivel de tropas (escala por nivel). */
 const TROOP_UPGRADE_COST = 20;
-const ACTION_UPGRADE_COSTS = [15, 30]; // N1 -> N2 (15), N2 -> N3 (30)
+/** @brief Costos para mejorar acciones: N1->N2, N2->N3 */
+const ACTION_UPGRADE_COSTS = [15, 30];
 
-// ====================================================================================
-//                                 ESTADO DEL JUEGO
-// ====================================================================================
+/* ========================================================================
+   ESTADO GLOBAL DEL JUEGO
+   ======================================================================== */
 
+/**
+ * @brief Estado global que mantiene la sesión del juego.
+ * @property {number} turn - número de turno actual
+ * @property {string|null} playerFaction - facción elegida por el jugador
+ * @property {string|null} aiFaction - facción de la IA
+ * @property {number} money - dinero del jugador
+ * @property {Object} nodes - mapa id -> Node (instancias)
+ * @property {string} currentPlayer - 'Player' | 'AI'
+ * @property {string|null} selectedNode - id del nodo seleccionado por jugador
+ * @property {number} actionsLeft - acciones restantes del jugador este turno
+ * @property {number} troopLevel - nivel global de tropas (mejora)
+ * @property {Object} actionLevels - niveles de acción {attack, defend, produce}
+ * @property {number} skillCooldown - cooldown global de la habilidad (compartido)
+ */
 let gameState = {
     turn: 0,
     playerFaction: null,
     aiFaction: null,
     money: INITIAL_MONEY,
-    nodes: {}, 
-    currentPlayer: 'Player', 
-    selectedNode: null, 
+    nodes: {},
+    currentPlayer: 'Player',
+    selectedNode: null,
     actionsLeft: 1,
-    troopLevel: 1, 
-    actionLevels: { attack: 1, defend: 1, produce: 1 }, 
+    troopLevel: 1,
+    actionLevels: { attack: 1, defend: 1, produce: 1 },
     skillCooldown: 0,
 };
 
-// ====================================================================================
-//                                 CLASES Y FUNCIONES BASE
-// ====================================================================================
+/* ========================================================================
+   CLASES Y FUNCIONES BASE
+   ======================================================================== */
 
+/**
+ * @class Node
+ * @brief Representa un nodo del mapa con estado y representación visual.
+ *
+ * @details
+ * Cada instancia crea su elemento DOM dentro de #game-area y expone:
+ *  - id, name, x, y
+ *  - owner: 'Neutral' | nombre de facción
+ *  - troops: número de tropas
+ *  - defenseTurns: turnos restantes de defensa
+ *  - shieldActive: boolean (escudo activo)
+ *
+ * @param {Object} data - objeto con keys {id, name, x, y, startNode?}
+ */
 class Node {
     constructor(data) {
         this.id = data.id;
@@ -146,53 +212,48 @@ class Node {
         this.y = data.y;
         this.owner = 'Neutral';
         this.troops = 0;
-        this.defenseTurns = 0; 
-        this.shieldActive = false; 
-        // ¡IMPORTANTE! Se corrige el contenedor de los nodos a 'game-area'
-        this.element = this.createVisualElement(); 
+        this.defenseTurns = 0;
+        this.shieldActive = false;
+        // Crear visual en DOM
+        this.element = this.createVisualElement();
     }
 
+    /**
+     * @brief Crea el elemento DOM del nodo y asigna listeners.
+     * @return {HTMLElement} referencia al div creado.
+     */
     createVisualElement() {
         const nodeDiv = document.createElement('div');
         nodeDiv.className = 'node Neutral';
-        // Asignar ID en el formato que espera el listener para buscar en gameState.nodes
-        nodeDiv.id = this.id; 
-        
-        // Ajustar la posición para centrar el hexágono (48x48)
+        nodeDiv.id = this.id;
         nodeDiv.style.left = `${this.x - 24}px`;
         nodeDiv.style.top = `${this.y - 24}px`;
+        nodeDiv.innerHTML = `<span class="node-troop-count">0</span>`;
 
-        // Solo se necesita el contador de tropas y la información básica
-        nodeDiv.innerHTML = `
-            <span class="node-troop-count">0</span>
-        `;
-        // Nota: Eliminamos el <div class="node-tooltip"> obsoleto
-
-        // --- ASIGNACIÓN DE LISTENERS PARA TOOLTIP (NUEVO) ---
-        // 1. Mostrar tooltip al entrar
+        // Tooltip: mouseover, mousemove, mouseout
         nodeDiv.addEventListener('mouseover', (e) => {
-            // Usamos this.id directamente ya que es el ID del nodo
-            const nodeData = gameState.nodes[this.id]; 
+            const nodeData = gameState.nodes[this.id];
             if (nodeData) {
                 showTooltip(nodeDiv, nodeData);
             }
         });
-
-        // 2. Mover tooltip con el cursor
         nodeDiv.addEventListener('mousemove', (e) => {
             positionTooltip(e);
         });
-
-        // 3. Ocultar tooltip al salir
         nodeDiv.addEventListener('mouseout', hideTooltip);
-        // --- FIN LISTENERS TOOLTIP ---
-        
+
+        // Click para seleccionar / interactuar
         nodeDiv.addEventListener('click', () => handleNodeClick(this.id));
+
+        // Append al contenedor del mapa
         document.getElementById('game-area').appendChild(nodeDiv);
         return nodeDiv;
     }
-    
-    // ... (Resto de métodos de Node: getStats, updateVisuals sin cambios) ...
+
+    /**
+     * @brief Calcula estadísticas derivadas del nodo (vida total, ataque total, espacio).
+     * @return {Object} { totalLife, totalAttack, space }
+     */
     getStats() {
         if (this.owner === 'Neutral' || this.troops === 0) {
             return { totalLife: 0, totalAttack: 0, space: 0 };
@@ -200,7 +261,7 @@ class Node {
 
         const faction = FACTIONS[this.owner];
         const base = faction.baseStats;
-        const levelBonus = (gameState.troopLevel - 1) * 0.05; // +5% por nivel (Max 9 niveles, 45%)
+        const levelBonus = (gameState.troopLevel - 1) * 0.05;
 
         const lifePerTroop = base.life * (1 + levelBonus);
         const attackPerTroop = base.attack * (1 + levelBonus);
@@ -209,11 +270,10 @@ class Node {
         let totalLife = Math.round(this.troops * lifePerTroop);
         let totalAttack = Math.round(this.troops * attackPerTroop);
 
-        // Nivel de defensa
         const defenseLevel = gameState.actionLevels.defend;
         let defenseBonus = 0;
         if (this.defenseTurns > 0) {
-            defenseBonus = 0.10 * defenseLevel; // N1: +10%, N2: +20%, N3: +30% de vida
+            defenseBonus = 0.10 * defenseLevel;
         }
         totalLife = Math.round(totalLife * (1 + defenseBonus));
 
@@ -224,14 +284,14 @@ class Node {
         };
     }
 
+    /**
+     * @brief Actualiza la representación visual del nodo (tropas, icono, clase).
+     * @note No devuelve valor; actualiza DOM interno.
+     */
     updateVisuals() {
-        // const stats = this.getStats(); // No es necesario en visuals
         this.element.querySelector('.node-troop-count').textContent = this.troops;
-        
-        // Actualizar clase y color
         this.element.className = `node ${this.owner}`;
 
-        // Eliminar icono si es neutral o si tiene 0 tropas
         let iconEl = this.element.querySelector('.node-icon');
         if (this.owner !== 'Neutral' && this.troops > 0) {
             if (!iconEl) {
@@ -239,8 +299,7 @@ class Node {
                 iconEl.className = 'node-icon';
                 this.element.appendChild(iconEl);
             }
-            // Corregido: el icono de la facción se llama 'faccion_nombre.png'
-            iconEl.src = `assets/faccion_${this.owner.toLowerCase()}.png`; 
+            iconEl.src = `assets/faccion_${this.owner.toLowerCase()}.png`;
             iconEl.style.display = 'block';
         } else {
             if (iconEl) iconEl.style.display = 'none';
@@ -248,13 +307,14 @@ class Node {
     }
 }
 
-// ====================================================================================
-//                                 GEOMETRÍA Y VISUALES
-// ====================================================================================
+/* ========================================================================
+   GEOMETRÍA Y VISUALES
+   ======================================================================== */
 
 /**
- * Dibuja las líneas de conexión entre nodos adyacentes usando el Canvas.
- * Esto asegura que las líneas estén detrás de los nodos y sean dinámicas.
+ * @brief Dibuja las conexiones (líneas) entre nodos adyacentes en canvas.
+ *
+ * @note Las líneas se dibujan en #connection-canvas y se limpian al inicio.
  */
 function drawConnections() {
     const canvas = document.getElementById('connection-canvas');
@@ -265,101 +325,88 @@ function drawConnections() {
     ctx.lineWidth = 2;
     ctx.lineCap = 'round';
 
-    // Usamos un Set para evitar dibujar líneas dobles (A -> B y B -> A)
     const drawnConnections = new Set();
 
     for (const nodeId in GAME_ADJACENCY_LIST) {
         const nodeA = gameState.nodes[nodeId];
-        if (!nodeA) continue; 
-        
+        if (!nodeA) continue;
+
         GAME_ADJACENCY_LIST[nodeId].forEach(neighborId => {
             const nodeB = gameState.nodes[neighborId];
             if (!nodeB) return;
-            
-            // Crea una clave única para la conexión (orden alfabético para bidireccionalidad)
+
             const connectionKey = [nodeA.id, nodeB.id].sort().join('-');
 
             if (!drawnConnections.has(connectionKey)) {
                 ctx.beginPath();
-                // Coordenadas X, Y del centro del nodo
                 ctx.moveTo(nodeA.x, nodeA.y);
                 ctx.lineTo(nodeB.x, nodeB.y);
                 ctx.stroke();
 
-                drawnConnections.add(connectionKey); 
+                drawnConnections.add(connectionKey);
             }
         });
     }
 }
 
+/**
+ * @brief Ejecuta una animación visual simple para la activación de la habilidad.
+ * @param {Node} node - nodo objetivo de la animación.
+ * @param {string} faction - nombre de la facción (para clase CSS).
+ */
 function triggerSkillAnimation(node, faction) {
-    // ... (Lógica de la animación sin cambios) ...
     const animEl = document.createElement('div');
     animEl.className = `skill-animation ${faction.toLowerCase()}-skill-anim`;
-    // Centrar la animación sobre el nodo
     animEl.style.left = `${node.x - 32}px`;
     animEl.style.top = `${node.y - 32}px`;
-    
+
     document.getElementById('game-area').appendChild(animEl);
 
-    // Eliminar después de que termine la animación
     setTimeout(() => {
         animEl.remove();
     }, 800);
 }
 
-
-// ... (Toda la configuración, estado del juego, Node Class, drawConnections, etc., sin cambios) ...
-
-// ====================================================================================
-//                                 INICIALIZACIÓN (¡Corregida!)
-// ====================================================================================
+/* ========================================================================
+   INICIALIZACIÓN DEL JUEGO
+   ======================================================================== */
 
 /**
- * Función que maneja la selección de facción al inicio.
+ * @brief Maneja la selección de facción desde la pantalla inicial.
+ * @param {Event} e - evento click del botón de facción.
  */
 function selectFaction(e) {
-    // **CORRECCIÓN CLAVE:** Usar 'closest' para encontrar el botón que contiene 'data-faction'.
-    const clickedButton = e.target.closest('.faction-btn'); 
-    
-    if (!clickedButton) return; // Si no encontró un botón, salir.
+    const clickedButton = e.target.closest('.faction-btn');
+    if (!clickedButton) return;
 
-    // 1. Obtener la facción del atributo data-faction del botón
-    const faction = clickedButton.dataset.faction; 
-    
+    const faction = clickedButton.dataset.faction;
     if (faction) {
         gameState.playerFaction = faction;
-        
-        // 2. Ocultar pantalla de inicio
         document.getElementById('start-screen').classList.add('hidden');
-        
-        // 3. Continuar con la inicialización del juego (crear nodos y comenzar turnos)
         setupGameWorld();
     }
 }
 
-// ... (El resto de la función setupGameWorld() sin cambios) ...
-
+/**
+ * @brief Inicializa el mundo del juego: crea nodos, asigna nodos iniciales, dibuja conexiones y comienza el turno.
+ */
 function setupGameWorld() {
     const playerFaction = gameState.playerFaction;
-    
-    // Asignar facción de la IA
+
     const availableFactions = Object.keys(FACTIONS).filter(f => f !== playerFaction);
     const aiFactionIndex = Math.floor(Math.random() * availableFactions.length);
     gameState.aiFaction = availableFactions[aiFactionIndex];
-    
-    // Asignación de nodos iniciales
+
     const startNodes = NODE_DATA.filter(n => n.startNode);
     if (startNodes.length < 2) {
         console.error("No hay suficientes nodos iniciales marcados.");
         return;
     }
     const shuffledStartNodes = startNodes.sort(() => 0.5 - Math.random());
-    
+
     const playerStartNode = shuffledStartNodes.pop().id;
     const aiStartNode = shuffledStartNodes.pop().id;
 
-    // 1. Crear Nodos
     NODE_DATA.forEach(data => {
         const node = new Node(data);
         gameState.nodes[data.id] = node;
@@ -374,227 +421,200 @@ function setupGameWorld() {
         node.updateVisuals();
     });
 
-    // 2. Dibujar conexiones y comenzar
     drawConnections();
     updateUI();
     startTurn();
-
-    // ... dentro de la función que crea o inicializa tus nodos, e.g., setupGameWorld()
-
-    // Ejemplo de cómo adjuntar listeners a un nodo 'nodeElement' y 'nodeData'
-    // (Asegúrate de que 'nodeElement' sea la referencia al DIV/botón del nodo)
-    nodeElement.addEventListener('mouseover', (e) => {
-        // Busca la data del nodo, asumiendo que el ID está en el elemento
-        const nodeId = nodeElement.id; 
-        const nodeData = gameState.nodes[nodeId];
-
-        if (nodeData) {
-            showTooltip(nodeElement, nodeData);
-        }
-    });
-
-    nodeElement.addEventListener('mousemove', (e) => {
-        // Mueve el tooltip para que siga el cursor
-        positionTooltip(e);
-    });
-
-    nodeElement.addEventListener('mouseout', hideTooltip);
-
 }
 
 /**
- * Función principal llamada al cargar el DOM.
- * Solo muestra la pantalla de selección de facción si es necesario.
+ * @brief Inicia el flujo del juego después de cargar el DOM.
+ * @note Muestra pantalla de selección si no hay facción elegida.
  */
 function initGame() {
     if (!gameState.playerFaction) {
-        // Mostrar la pantalla de inicio
         document.getElementById('start-screen').classList.remove('hidden');
     } else {
-        // Si por alguna razón la facción ya está seteada, iniciar directamente.
         setupGameWorld();
     }
 }
 
-// ====================================================================================
-// ====================================================================================
-//                                 MANEJO DE TURNOS
-// ====================================================================================
+/* ========================================================================
+   MANEJO DE TURNOS
+   ======================================================================== */
 
+/**
+ * @brief Comienza un nuevo turno para el jugador.
+ * @details Incrementa el contador de turnos, gestiona cooldowns, genera recursos y prepara acciones.
+ */
 function startTurn() {
     gameState.turn++;
     gameState.currentPlayer = 'Player';
     gameState.actionsLeft = calculateMaxActions(gameState.playerFaction);
     gameState.selectedNode = null;
-    
-    // Cooldown y defensa
+
     Object.values(gameState.nodes).forEach(node => {
-        // Reducir defensa
         if (node.defenseTurns > 0) {
             node.defenseTurns--;
         }
     });
 
-    // Reducir cooldown de habilidad
     if (gameState.skillCooldown > 0) {
         gameState.skillCooldown--;
     }
 
-    // Generar dinero y tropas
     generateResources();
-    
+
     updateUI();
     document.getElementById('turn-text').textContent = "Tu Turno";
     document.getElementById('turn-counter').textContent = `T: ${gameState.turn}`;
     document.getElementById('end-turn-btn').disabled = false;
 }
 
-// ====================================================================================
-//                          FUNCIÓN GENERATE RESOURCES (CORREGIDA)
-// ====================================================================================
-
+/**
+ * @brief Calcula producción pasiva de tropas y dinero por turno.
+ * @note La IA no gana dinero, solo tropas.
+ */
 function generateResources() {
     let playerMoneyGained = 0;
-    
-    // 1. Calcular la producción pasiva (usa los niveles de mejora globales)
+
     const produceLevel = gameState.actionLevels.produce;
     let productionBonus = 0;
-    if (produceLevel === 2) productionBonus = 1; // +1 tropa
-    if (produceLevel === 3) productionBonus = 2; // +2 tropas
-    const passiveProduction = 1 + productionBonus; // 1 base + mejora
+    if (produceLevel === 2) productionBonus = 1;
+    if (produceLevel === 3) productionBonus = 2;
+    const passiveProduction = 1 + productionBonus;
 
-    // 2. Iterar sobre todos los nodos
     Object.values(gameState.nodes).forEach(node => {
-        
-        // --- LÓGICA PARA EL JUGADOR ---
         if (node.owner === gameState.playerFaction) {
-            playerMoneyGained++; // 1 moneda por nodo propio
-            
+            playerMoneyGained++;
+
             const stats = node.getStats();
             if (node.troops < stats.space) {
-                // Aplica producción pasiva al jugador
                 node.troops = Math.min(node.troops + passiveProduction, stats.space);
                 node.updateVisuals();
             }
-        } 
-        // --- LÓGICA PARA LA IA (AÑADIDA) ---
-        else if (node.owner === gameState.aiFaction) {
-             // La IA no gana dinero (usa el presupuesto implícito/global), pero sí tropas pasivas.
+        } else if (node.owner === gameState.aiFaction) {
             const stats = node.getStats();
             if (node.troops < stats.space) {
-                // Aplica producción pasiva a la IA
                 node.troops = Math.min(node.troops + passiveProduction, stats.space);
                 node.updateVisuals();
             }
         }
     });
-    
-    // 3. Aplicar el dinero al estado del juego (solo para el jugador)
+
     gameState.money += playerMoneyGained;
 }
 
+/**
+ * @brief Calcula el número máximo de acciones del jugador en función de nodos controlados.
+ * @param {string} faction - facción a evaluar.
+ * @return {number} máximo de acciones (1..4)
+ */
 function calculateMaxActions(faction) {
     const controlledNodes = Object.values(gameState.nodes).filter(n => n.owner === faction).length;
-    // 1 nodo = 1 acción, 2 nodos = 2 acciones, 3 nodos = 3 acciones, 4+ nodos = 4 acciones
     return Math.min(controlledNodes, 4);
 }
+
+/* ========================================================================
+   EVENTS: FIN DE TURNO (BOTÓN)
+   ======================================================================== */
 
 document.getElementById('end-turn-btn').addEventListener('click', () => {
     document.getElementById('end-turn-btn').disabled = true;
     gameState.currentPlayer = 'AI';
     updateUI();
     document.getElementById('turn-text').textContent = "Turno de la IA...";
-    setTimeout(aiTurn, 1000); // Pequeño retraso para simular "pensamiento"
+    setTimeout(aiTurn, 1000);
 });
 
-// ====================================================================================
-//                              MANEJO DE TURNOS (IA)
-// ====================================================================================
+/* ========================================================================
+   MANEJO DE TURNOS (IA)
+   ======================================================================== */
 
+/**
+ * @brief Ejecuta el turno completo de la IA: calcula acciones y las ejecuta con delays.
+ * @details Obtiene acciones de la clase AI, ejecuta cada acción con retardo
+ *          y finaliza el turno volviendo el control al jugador.
+ */
 function aiTurn() {
     const ai = new AI(gameState.aiFaction);
-    
-    // 1. Obtener y ejecutar acciones
+
     const actions = ai.getActions();
-    
-    // Calcular el tiempo total de ejecución de las acciones
-    const actionDelayTime = 500; // 0.5 segundos por acción
+
+    const actionDelayTime = 500;
     let totalDelay = 0;
-    
+
     actions.forEach((action) => {
-        // Ejecutar cada acción con un retraso secuencial
         setTimeout(() => {
             ai.executeAction(action);
-            updateUI(); // Actualizar UI después de la acción
+            updateUI();
         }, totalDelay);
-        totalDelay += actionDelayTime; 
+        totalDelay += actionDelayTime;
     });
-    
-    // ... dentro de aiTurn()
-    // 2. Lógica de Fin de Turno ÚNICA (Se ejecuta después de todas las acciones)
+
     setTimeout(() => {
-        // Ejecutar mejoras después de las acciones (ESTO SE ELIMINARÁ/MOVERÁ EN LA PARTE 2)
-        // ai.upgradeIfPossible(); // <-- MANTENER POR AHORA, LO ELIMINAREMOS EN LA PARTE 2
-        
-        // Verificar si el juego ha terminado
         if (!checkGameOver()) {
-            // Finalizar el turno y empezar el siguiente.
             gameState.currentPlayer = 'Player';
-            startTurn(); 
+            startTurn();
         }
-        
-    }, totalDelay + 500); // Se añade un retraso final
-    //  // Se añade un retraso final de 0.5s para la visualización de la última acción/mejora
+    }, totalDelay + 500);
 }
-// Asegúrate de que esta clase reemplace completamente la versión anterior de la clase AI
 
-// ====================================================================================
-//                              CLASE INTELIGENCIA ARTIFICIAL (AI)
-// ====================================================================================
+/* ========================================================================
+   CLASE: INTELIGENCIA ARTIFICIAL (AI)
+   ======================================================================== */
 
+/**
+ * @class AI
+ * @brief Lógica simple/heurística para la facción controlada por la IA.
+ *
+ * @param {string} faction - nombre de la facción de la IA.
+ */
 class AI {
     constructor(faction) {
         this.faction = faction;
         this.actionsLeft = calculateMaxActions(faction);
     }
-    
-    // --- Lógica de Decisión (Determina qué hacer) ---
-    // --- Lógica de Decisión (Mejorada para reconocer el desgaste) ---
+
+    /**
+     * @brief Construye una cola de acciones basada en heurísticas.
+     * @return {Array<Object>} lista de acciones (type, source, target?, amount?)
+     *
+     * @note Acciones principales consumen accionesLeft; transferencias no.
+     */
     getActions() {
         const actionQueue = [];
         const myNodes = Object.values(gameState.nodes).filter(n => n.owner === this.faction);
-        const usedNodes = new Set(); // Restringe 1 acción principal (A/D/P) por nodo.
-        
+        const usedNodes = new Set();
+
         for (const myNode of myNodes) {
             if (this.actionsLeft <= 0) break;
             if (usedNodes.has(myNode.id)) continue;
-            
+
             const myStats = myNode.getStats();
             const adjacents = GAME_ADJACENCY_LIST[myNode.id].map(id => gameState.nodes[id]);
             let actionSelected = false;
 
-            // P1: ATAQUE ⚔️ (Aprovecha el desgaste: Ataque > Vida objetivo)
+            // P1: ATAQUE
             if (myNode.troops > 1) {
-                // Elige el nodo enemigo adyacente más débil (que sea conquistable).
                 const target = adjacents.filter(n => n.owner !== this.faction)
-                                        .sort((a, b) => a.getStats().totalLife - b.getStats().totalLife) // Ordenar por vida (más débil primero)
-                                        .find(n => myStats.totalAttack > n.getStats().totalLife); // Encuentra el primero que puede conquistar
-                
+                                        .sort((a, b) => a.getStats().totalLife - b.getStats().totalLife)
+                                        .find(n => myStats.totalAttack > n.getStats().totalLife);
+
                 if (target) {
                     actionQueue.push({ type: 'attack', source: myNode.id, target: target.id });
                     actionSelected = true;
                 }
             }
-            
+
             if (actionSelected) {
                  this.actionsLeft--;
-                 usedNodes.add(myNode.id); // Este nodo ya usó su acción principal
-                 continue; 
+                 usedNodes.add(myNode.id);
+                 continue;
             }
 
-            // P2: DEFENSA 🛡️ (Lógica sin cambios)
+            // P2: DEFENSA
             if (myNode.defenseTurns === 0) {
-                 const threat = adjacents.find(n => 
+                 const threat = adjacents.find(n =>
                     n.owner !== this.faction && n.owner !== 'Neutral' && n.getStats().totalAttack > myStats.totalLife
                  );
                  if (threat) {
@@ -602,25 +622,24 @@ class AI {
                     actionSelected = true;
                  }
             }
-            
+
             if (actionSelected) {
                  this.actionsLeft--;
                  usedNodes.add(myNode.id);
                  continue;
             }
 
-            // P3: PRODUCCIÓN 🌱 (Lógica sin cambios)
+            // P3: PRODUCCIÓN
             if (myNode.troops < myStats.space) {
                  actionQueue.push({ type: 'produce', source: myNode.id });
                  this.actionsLeft--;
                  usedNodes.add(myNode.id);
             }
-            // P4: TRANSFERENCIA (Consolidar tropas en nodos de defensa/frontera)
-            // Se busca mover el exceso de tropas de nodos internos a nodos más importantes.
-            
-            const internalNodes = Object.values(gameState.nodes).filter(n => 
-                n.owner === this.faction && n.troops > 1 && 
-                GAME_ADJACENCY_LIST[n.id].every(adjId => gameState.nodes[adjId].owner === this.faction) // Nodos rodeados por amigos
+
+            // P4: TRANSFERENCIA (no consume acción)
+            const internalNodes = Object.values(gameState.nodes).filter(n =>
+                n.owner === this.faction && n.troops > 1 &&
+                GAME_ADJACENCY_LIST[n.id].every(adjId => gameState.nodes[adjId].owner === this.faction)
             );
 
             if (internalNodes.length > 0) {
@@ -628,54 +647,46 @@ class AI {
                 const adjacentFriendly = GAME_ADJACENCY_LIST[source.id]
                                           .map(id => gameState.nodes[id])
                                           .filter(n => n.owner === this.faction)
-                                          .sort((a, b) => a.troops - b.troops); // Priorizar mover a nodos con menos tropas (para balancear)
+                                          .sort((a, b) => a.troops - b.troops);
 
                 if (adjacentFriendly.length > 0) {
-                     // Mueve 1/3 de las tropas excedentes, dejando siempre 1.
-                     const transferAmount = Math.floor((source.troops - 1) / 3); 
+                     const transferAmount = Math.floor((source.troops - 1) / 3);
                      if (transferAmount > 0) {
-                        actionQueue.push({ 
-                            type: 'transfer', 
-                            source: source.id, 
-                            target: adjacentFriendly[0].id, 
-                            amount: transferAmount 
+                        actionQueue.push({
+                            type: 'transfer',
+                            source: source.id,
+                            target: adjacentFriendly[0].id,
+                            amount: transferAmount
                         });
-                        // La transferencia NO consume acción de turno.
-                        // usedNodes.add(source.id); // No se marca como usado para que pueda producir/atacar si es necesario.
                         continue;
                      }
                 }
             }
-        } // Fin del bucle for
+        }
         return actionQueue;
     }
-    
-    // --- Lógica de Ejecución (Implementa la acción y la habilidad) ---
+
+    /**
+     * @brief Ejecuta una acción proveniente de la cola calculada.
+     * @param {Object} action - acción con tipo y parámetros.
+     */
     executeAction(action) {
         const sourceNode = gameState.nodes[action.source];
         const skillReady = gameState.skillCooldown === 0;
-        
-        // --- Activación de Habilidad (Antes de la acción base) ---
+
         if (skillReady) {
             const skill = FACTIONS[this.faction].skill;
-            
-            // ESMAD (DEFENSA): Habilidad al defender
+
             if (this.faction === 'ESMAD' && action.type === 'defend') {
-                sourceNode.defenseTurns = gameState.actionLevels.defend + 1; // +1 turno extra
-                sourceNode.shieldActive = true; 
+                sourceNode.defenseTurns = gameState.actionLevels.defend + 1;
+                sourceNode.shieldActive = true;
                 triggerSkillAnimation(sourceNode, this.faction);
                 gameState.skillCooldown = skill.cooldown;
-            
-            // CAPUCHOS (ATAQUE): Habilidad al atacar
             } else if (this.faction === 'Capuchos' && action.type === 'attack') {
-                // Aplica escudo defensivo al nodo atacante.
-                sourceNode.shieldActive = true; 
+                sourceNode.shieldActive = true;
                 triggerSkillAnimation(sourceNode, this.faction);
                 gameState.skillCooldown = skill.cooldown;
-            
-            // MINGA (PRODUCCIÓN): Habilidad al producir
             } else if (this.faction === 'Minga' && action.type === 'produce') {
-                // Duplica tropas.
                 const stats = sourceNode.getStats();
                 const newTroops = Math.min(sourceNode.troops * 2, stats.space);
                 sourceNode.troops = newTroops;
@@ -685,50 +696,42 @@ class AI {
             }
         }
 
-        // --- Ejecución de la Acción Base ---
         if (action.type === 'attack') {
             const targetNode = gameState.nodes[action.target];
             if (sourceNode.troops > 1) {
                 executeAttack(sourceNode, targetNode);
             }
         } else if (action.type === 'defend') {
-            // Solo defiende si no lo hizo con la habilidad ESMAD y si aún no tiene defensa.
             if (sourceNode.owner === this.faction && sourceNode.defenseTurns === 0) {
                 sourceNode.defenseTurns = gameState.actionLevels.defend;
             }
         } else if (action.type === 'produce') {
             const stats = sourceNode.getStats();
-            
-            // Si es Minga Y usó la habilidad, la producción ya se hizo arriba (duplicación).
-            // Si no es Minga, o si Minga no pudo usar la habilidad (por cooldown), procede con la producción normal.
             const producedBySkill = (this.faction === 'Minga' && skillReady && action.type === 'produce');
 
             if (!producedBySkill && sourceNode.owner === this.faction) {
                 const produceLevel = gameState.actionLevels.produce;
                 let production = produceLevel;
-                
                 sourceNode.troops = Math.min(sourceNode.troops + production, stats.space);
                 sourceNode.updateVisuals();
             }
         } else if (action.type === 'transfer') {
             const targetNode = gameState.nodes[action.target];
-            // Reutilizamos la lógica, ya que la IA es el único que llama a esto.
             executeTransfer(sourceNode, targetNode, action.amount);
         }
     }
 
-    // --- Lógica de Mejoras (Siempre que pueda, lo hará) ---
+    /**
+     * @brief Intento de la IA por gastar dinero en mejoras si le alcanza.
+     * @note Lógica simple: prioriza tropas, luego producción, ataque, defensa.
+     */
     upgradeIfPossible() {
-        // Prioridad: 1. Tropas > 2. Producción > 3. Ataque > 4. Defensa
-        
-        // 1. Mejorar Tropas
         let troopCost = TROOP_UPGRADE_COST * gameState.troopLevel;
         if (gameState.money >= troopCost && gameState.troopLevel < 10) {
             handleUpgrade('troop');
-            return; 
+            return;
         }
 
-        // 2. Mejorar Producción
         if (gameState.actionLevels.produce < 3) {
             let cost = ACTION_UPGRADE_COSTS[gameState.actionLevels.produce - 1];
             if (gameState.money >= cost) {
@@ -737,7 +740,6 @@ class AI {
             }
         }
 
-        // 3. Mejorar Ataque
         if (gameState.actionLevels.attack < 3) {
             let cost = ACTION_UPGRADE_COSTS[gameState.actionLevels.attack - 1];
             if (gameState.money >= cost) {
@@ -745,8 +747,7 @@ class AI {
                 return;
             }
         }
-        
-        // 4. Mejorar Defensa
+
         if (gameState.actionLevels.defend < 3) {
             let cost = ACTION_UPGRADE_COSTS[gameState.actionLevels.defend - 1];
             if (gameState.money >= cost) {
@@ -757,32 +758,31 @@ class AI {
     }
 }
 
-// ====================================================================================
-//                                 INICIO DEL JUEGO
-// ====================================================================================
+/* ========================================================================
+   INICIO DEL JUEGO (DOM READY)
+   ======================================================================== */
 
-// **Se asignan los listeners de facción aquí, para que estén listos antes de que initGame se ejecute.**
 document.addEventListener('DOMContentLoaded', () => {
-    // Asignar listeners a los botones de facción
     document.querySelectorAll('.faction-btn').forEach(btn => {
-        // Si tienes elementos dentro del botón, el 'closest' en selectFaction manejará el clic.
         btn.addEventListener('click', selectFaction);
     });
-    
-    // Iniciar el chequeo principal
+
     initGame();
 });
 
-// ====================================================================================
-//                                 INTERACCIÓN DEL JUGADOR
-// ====================================================================================
+/* ========================================================================
+   INTERACCIÓN DEL JUGADOR
+   ======================================================================== */
 
+/**
+ * @brief Maneja clics en nodos (selección, transferencia, ataque).
+ * @param {string} nodeId - id del nodo clickeado.
+ */
 function handleNodeClick(nodeId) {
     const targetNode = gameState.nodes[nodeId];
-    
+
     if (gameState.currentPlayer !== 'Player') return;
 
-    // 1. Selección inicial
     if (gameState.selectedNode === null) {
         if (targetNode.owner === gameState.playerFaction) {
             gameState.selectedNode = nodeId;
@@ -793,21 +793,18 @@ function handleNodeClick(nodeId) {
     }
 
     const sourceNode = gameState.nodes[gameState.selectedNode];
-    
-    // 2. Deselección (Clic en el mismo nodo)
+
     if (sourceNode === targetNode) {
-        sourceNode.element.classList.remove('selected'); // ✅ Deselección aquí
+        sourceNode.element.classList.remove('selected');
         gameState.selectedNode = null;
         updateUI();
         return;
     }
-    
-    // 3. Ejecutar Acción / Transferencia
+
     const isAdjacent = GAME_ADJACENCY_LIST[sourceNode.id].includes(targetNode.id);
 
     if (!isAdjacent) {
-        // Lógica de re-selección
-        sourceNode.element.classList.remove('selected'); // ✅ Deselección aquí
+        sourceNode.element.classList.remove('selected');
         gameState.selectedNode = null;
 
         if (targetNode.owner === gameState.playerFaction) {
@@ -818,16 +815,13 @@ function handleNodeClick(nodeId) {
         return;
     }
 
-    // --- TRANSFERENCIA DE TROPAS ---
     if (targetNode.owner === gameState.playerFaction) {
-        
         const maxTransfer = sourceNode.troops - 1;
-        let transferCompleted = false; // Flag para rastrear si la transferencia se hizo
+        let transferCompleted = false;
 
         if (maxTransfer <= 0) {
             displayMessage("No hay tropas suficientes para transferir. Necesitas al menos 2.", 'error');
         } else {
-            // Usamos un try/catch para manejar mejor la cancelación o errores del prompt
             try {
                 let transferAmount = prompt(`¿Cuántas tropas deseas mover de ${sourceNode.name} a ${targetNode.name}? (Máximo: ${maxTransfer})`);
                 transferAmount = parseInt(transferAmount);
@@ -835,98 +829,91 @@ function handleNodeClick(nodeId) {
                 if (!isNaN(transferAmount) && transferAmount > 0 && transferAmount <= maxTransfer) {
                     executeTransfer(sourceNode, targetNode, transferAmount);
                     transferCompleted = true;
-                } else if (transferAmount !== null) { // Si no es null (no se canceló) pero es inválido
+                } else if (transferAmount !== null) {
                     displayMessage("Transferencia cancelada o cantidad inválida.", 'warning');
                 }
             } catch (e) {
-                // Capturar errores del prompt (aunque es raro)
                 console.error("Error durante el prompt de transferencia:", e);
                 displayMessage("Error al procesar la transferencia.", 'error');
             }
         }
-        
-        // Finalizar la interacción de transferencia
-        sourceNode.element.classList.remove('selected'); // ✅ Deselección aquí
+
+        sourceNode.element.classList.remove('selected');
         gameState.selectedNode = null;
         updateUI();
         return;
     }
 
-    // --- ATAQUE ---
     else if (targetNode.owner !== gameState.playerFaction) {
-        
         if (gameState.actionsLeft > 0) {
-            
             executeAttack(sourceNode, targetNode);
-            
+
             if (checkGameOver()) {
                 return;
             }
-            
-            gameState.actionsLeft--; 
-            updateUI(); 
-            
+
+            gameState.actionsLeft--;
+            updateUI();
+
             displayMessage(`Ataque lanzado desde ${sourceNode.name} a ${targetNode.name}.`, 'info');
-            
+
         } else {
             displayMessage("No te quedan acciones para atacar.", 'warning');
         }
     }
-    
-    // 4. Finalizar la interacción (Después de un ataque)
-    sourceNode.element.classList.remove('selected'); // ✅ Deselección aquí
+
+    sourceNode.element.classList.remove('selected');
     gameState.selectedNode = null;
     updateUI();
 }
 
-// ====================================================================================
-//                                 MOTOR DE COMBATE
-// ====================================================================================
+/* ========================================================================
+   MOTOR DE COMBATE
+   ======================================================================== */
 
-// ====================================================================================
-//                              FUNCIÓN DE COMBATE
-// ====================================================================================
-
+/**
+ * @brief Ejecuta la lógica del combate entre dos nodos.
+ *
+ * @param {Node} attackerNode - nodo atacante.
+ * @param {Node} defenderNode - nodo defensor.
+ *
+ * @details
+ *  - Calcula daño total de ambos bandos
+ *  - Calcula bajas (redondeando hacia arriba)
+ *  - Aplica consumos de defensa y escudos
+ *  - Si defensor queda en 0, se intenta la conquista con tropas sobrevivientes
+ *  - Nodos en 0 tropas pasan a Neutral
+ */
 function executeAttack(attackerNode, defenderNode) {
-    if (attackerNode.owner === defenderNode.owner || attackerNode.troops <= 1) return; 
+    if (attackerNode.owner === defenderNode.owner || attackerNode.troops <= 1) return;
 
     const attackerStats = attackerNode.getStats();
     const defenderStats = defenderNode.getStats();
-    
-    // Almacenar tropas iniciales para el cálculo de traslado y supervivencia
+
     const initialAttackerTroops = attackerNode.troops;
 
-    // --- 1. Cálculo de Daño y Bajas ---
-    
-    const attackerDamage = attackerStats.totalAttack; 
-    const defenderDamage = defenderStats.totalAttack; 
+    const attackerDamage = attackerStats.totalAttack;
+    const defenderDamage = defenderStats.totalAttack;
 
-    // Bajas del defensor
-    const defenderLifePerTroop = defenderNode.troops > 0 
+    const defenderLifePerTroop = defenderNode.troops > 0
                                ? defenderStats.totalLife / defenderNode.troops
-                               : 1; 
-    let defenderLostTroops = defenderNode.troops > 0 
-                             ? Math.ceil(attackerDamage / defenderLifePerTroop) 
+                               : 1;
+    let defenderLostTroops = defenderNode.troops > 0
+                             ? Math.ceil(attackerDamage / defenderLifePerTroop)
                              : 0;
 
-    // Bajas del atacante (por contraataque)
-    const attackerLifePerTroop = attackerNode.troops > 0 
+    const attackerLifePerTroop = attackerNode.troops > 0
                                ? attackerStats.totalLife / attackerNode.troops
-                               : 1; 
+                               : 1;
 
-    let attackerLostTroops = attackerNode.troops > 0 && defenderNode.troops > 0 
-                             ? Math.ceil(defenderDamage / attackerLifePerTroop) 
+    let attackerLostTroops = attackerNode.troops > 0 && defenderNode.troops > 0
+                             ? Math.ceil(defenderDamage / attackerLifePerTroop)
                              : 0;
 
-    // --- 2. Aplicar Bajas y Consumo de Habilidades ---
-
-    // 2.1. Aplicar bajas al atacante
     attackerNode.troops = Math.max(0, attackerNode.troops - attackerLostTroops);
-    
-    // 2.2. Aplicar bajas al defensor
+
     let remainingDefenderTroops = defenderNode.troops - defenderLostTroops;
-    
-    // Consumo de defensa/escudo
+
     if (defenderNode.defenseTurns > 0) {
         defenderNode.defenseTurns--;
     }
@@ -934,57 +921,34 @@ function executeAttack(attackerNode, defenderNode) {
         defenderNode.shieldActive = false;
     }
 
-    // --- 3. Verificación y Traslado de Conquista ---
-    
-    // Si las tropas del defensor llegan a cero o menos
-    if (remainingDefenderTroops <= 0) { 
-        
-        // 1. Calcular tropas que sobreviven al combate
+    if (remainingDefenderTroops <= 0) {
         const troopsSurvived = initialAttackerTroops - attackerLostTroops;
-        
-        // 2. El atacante debe tener al menos 1 tropa restante para iniciar la conquista
+
         if (troopsSurvived > 0) {
-            
-            // Tropas a mover: Todas menos 1 (si hay suficientes).
-            // NOTA CLAVE: troopsToMove podría ser 0 (si troopsSurvived era 1).
-            const troopsToMove = Math.max(0, troopsSurvived - 1); 
+            const troopsToMove = Math.max(0, troopsSurvived - 1);
             const troopsRemainingInAttacker = troopsSurvived - troopsToMove;
-            
-            // Asignar nuevo dueño y trasladar tropas
+
             defenderNode.owner = attackerNode.owner;
-            
-            // REGLA DE CONQUISTA FORZOSA: Siempre que haya conquista, el nodo debe tener al menos 1 tropa.
-            defenderNode.troops = Math.max(1, troopsToMove); // Mínimo 1 tropa
-            
-            // Dejar el nodo atacante con la tropa obligatoria.
+            defenderNode.troops = Math.max(1, troopsToMove);
             attackerNode.troops = troopsRemainingInAttacker;
-            
+
             defenderNode.defenseTurns = 0;
             defenderNode.shieldActive = false;
         } else {
-             // Si el atacante no sobrevivió, el defensor también cae a 0.
-             // La limpieza a Neutral se manejará en el paso 4.
-             defenderNode.troops = 0; 
+             defenderNode.troops = 0;
         }
     } else {
-        // El nodo defensor sobrevive. Mínimo 1 tropa.
         defenderNode.troops = Math.max(1, remainingDefenderTroops);
     }
-    
-    // --- 4. Liberación Universal (Limpieza final) ---
-    // REGLA UNIVERSAL: Cualquier nodo en 0 tropas se vuelve Neutral.
-    
-    // Limpiar nodo atacante si perdió todas sus tropas
+
     if (attackerNode.troops === 0) {
         attackerNode.owner = 'Neutral';
     }
-    
-    // Limpiar nodo defensor si perdió todas sus tropas (y no fue conquistado)
+
     if (defenderNode.troops === 0 && defenderNode.owner !== attackerNode.owner) {
         defenderNode.owner = 'Neutral';
     }
-    
-    // Asegurar que si es Neutral, no tenga defensa/escudo residual
+
     if (attackerNode.owner === 'Neutral') {
         attackerNode.defenseTurns = 0;
         attackerNode.shieldActive = false;
@@ -993,17 +957,19 @@ function executeAttack(attackerNode, defenderNode) {
         defenderNode.defenseTurns = 0;
         defenderNode.shieldActive = false;
     }
-    
-    // 5. Actualizar Visuales
+
     attackerNode.updateVisuals();
     defenderNode.updateVisuals();
 }
 
+/**
+ * @brief Comprueba condición de victoria global y muestra pantalla final si procede.
+ * @param {string} [lastConqueror] - facción que realizó la última conquista (opcional).
+ */
 function checkWinCondition(lastConqueror) {
     const remainingFactions = new Set(Object.values(gameState.nodes).map(n => n.owner).filter(o => o !== 'Neutral'));
 
     if (remainingFactions.size <= 1) {
-        // Queda solo un dueño (o nadie)
         let winner = lastConqueror;
         if (remainingFactions.size === 1) {
             winner = remainingFactions.values().next().value;
@@ -1014,101 +980,105 @@ function checkWinCondition(lastConqueror) {
     }
 }
 
+/**
+ * @brief Muestra la pantalla de fin de juego con mensaje.
+ * @param {string} message - texto a mostrar en la pantalla final.
+ */
 function showEndGame(message) {
     document.getElementById('end-game-message').textContent = message;
     document.getElementById('end-game-screen').classList.remove('hidden');
 }
 
+/* ========================================================================
+   MEJORAS Y HABILIDADES
+   ======================================================================== */
 
-// ====================================================================================
-//                                 MEJORAS Y HABILIDADES
-// ====================================================================================
-
+/**
+ * @brief Aplica mejoras (tropas o acción) si el jugador tiene dinero.
+ * @param {string} type - 'troop' o 'action'
+ * @param {string|null} actionName - 'attack'|'defend'|'produce' si type==='action'
+ */
 function handleUpgrade(type, actionName = null) {
     let currentLevel, cost;
-    
+
     if (type === 'troop') {
         currentLevel = gameState.troopLevel;
         if (currentLevel >= 10) return;
-        cost = TROOP_UPGRADE_COST * currentLevel; // Costo creciente
-        
+        cost = TROOP_UPGRADE_COST * currentLevel;
     } else if (type === 'action') {
         currentLevel = gameState.actionLevels[actionName];
         if (currentLevel >= 3) return;
-        cost = ACTION_UPGRADE_COSTS[currentLevel - 1]; // Costo N1->N2, N2->N3
+        cost = ACTION_UPGRADE_COSTS[currentLevel - 1];
     }
-    
+
     if (gameState.money >= cost) {
         gameState.money -= cost;
-        
+
         if (type === 'troop') {
             gameState.troopLevel++;
         } else {
             gameState.actionLevels[actionName]++;
         }
-        
+
         updateUI();
     } else {
         alert(`No tienes suficiente dinero. Necesitas ${cost}.`);
     }
 }
 
+/* Listeners para botones de upgrade */
 document.getElementById('upgrade-troop-btn').addEventListener('click', () => handleUpgrade('troop'));
 document.querySelectorAll('.upgrade-action-btn').forEach(btn => {
     btn.addEventListener('click', (e) => handleUpgrade('action', e.target.dataset.action));
 });
 
-// Implementación de acciones de jugador (Defensa/Producción)
+/* Acciones de jugador (defensa/producción) */
 document.getElementById('action-defend-btn').addEventListener('click', () => {
     if (gameState.actionsLeft <= 0 || !gameState.selectedNode) return;
     const node = gameState.nodes[gameState.selectedNode];
-    
+
     if (node.owner !== gameState.playerFaction || node.defenseTurns > 0) return;
 
     node.defenseTurns = gameState.actionLevels.defend;
     gameState.actionsLeft--;
 
-    // 🚩 Deselección OPTIMIZADA
     node.element.classList.remove('selected');
     gameState.selectedNode = null;
-    // document.querySelectorAll('.node').forEach(el => el.classList.remove('selected')); // <-- ELIMINADO
     updateUI();
 });
 
 document.getElementById('action-produce-btn').addEventListener('click', () => {
     if (gameState.actionsLeft <= 0 || !gameState.selectedNode) return;
     const node = gameState.nodes[gameState.selectedNode];
-    
+
     if (node.owner !== gameState.playerFaction) return;
 
-    // La producción se realiza al inicio del turno.
-    // Esta acción de 'Producir' adicional simplemente añade una cantidad inmediata:
     const produceLevel = gameState.actionLevels.produce;
     let production = 1;
     if (produceLevel === 2) production = 2;
-    if (produceLevel === 3) production = 3; 
+    if (produceLevel === 3) production = 3;
 
     const stats = node.getStats();
     node.troops = Math.min(node.troops + production, stats.space);
     node.updateVisuals();
-    
+
     gameState.actionsLeft--;
-    
-    // 🚩 Deselección OPTIMIZADA
+
     node.element.classList.remove('selected');
     gameState.selectedNode = null;
-    // document.querySelectorAll('.node').forEach(el => el.classList.remove('selected')); // <-- ELIMINADO
     updateUI();
 });
 
-// Habilidad
+/**
+ * @brief Uso de la habilidad de la facción del jugador en el nodo seleccionado.
+ * @note Valida selección y cooldown; modifica estado del nodo según facción.
+ */
 function handleSkillUse() {
     if (gameState.currentPlayer !== 'Player' || gameState.skillCooldown > 0) return;
 
     const faction = gameState.playerFaction;
     const skill = FACTIONS[faction].skill;
 
-    // Las habilidades se usan en un nodo. Requiere que un nodo esté seleccionado.
     if (!gameState.selectedNode) {
         alert("Selecciona un nodo propio para usar la habilidad.");
         return;
@@ -1121,52 +1091,45 @@ function handleSkillUse() {
 
     switch (faction) {
         case 'ESMAD':
-            // Ataque con Tanqueta: Para la versión simple, la aplicaremos como un buff al nodo.
             alert("Habilidad ESMAD (Tanqueta) activada. Tu siguiente ataque será más fuerte.");
-            node.attackBoost = true; // Se maneja en executeAttack
+            node.attackBoost = true;
             break;
         case 'Capuchos':
-            // Escudo: Reduce el daño del siguiente ataque.
             node.shieldActive = true;
             break;
         case 'Minga':
-            // Duplicar tropas (limitado por espacio)
             const stats = node.getStats();
             const newTroops = Math.min(node.troops * 2, stats.space);
             node.troops = newTroops;
             node.updateVisuals();
             break;
     }
-    
+
     gameState.skillCooldown = FACTIONS[gameState.playerFaction].skill.cooldown;
-    
-    // 🚩 Deselección OPTIMIZADA
+
     node.element.classList.remove('selected');
     gameState.selectedNode = null;
-    // document.querySelectorAll('.node').forEach(el => el.classList.remove('selected')); // <-- ELIMINADO
     updateUI();
 }
 
-// Inicializar listener de habilidad (después de asignar la facción)
-// Se asigna en updateUI al inicializar.
+/* ========================================================================
+   ACTUALIZACIÓN DE UI Y TOOLTIP
+   ======================================================================== */
 
-// ====================================================================================
-//                                 ACTUALIZACIÓN DE UI
-// ====================================================================================
-
+/**
+ * @brief Actualiza indicadores de UI: dinero, acciones, niveles y habilidad.
+ */
 function updateUI() {
     const faction = gameState.playerFaction;
     const factionData = FACTIONS[faction];
     const skill = factionData.skill;
     const skillCardEl = document.getElementById('skill-card');
-    
-    // Info General
+
     document.getElementById('faction-icon').src = `assets/faccion_${faction.toLowerCase()}.png`;
     document.getElementById('player-faction-name').textContent = factionData.name;
     document.getElementById('current-money').textContent = gameState.money;
     document.getElementById('actions-left-display').textContent = gameState.actionsLeft;
 
-    // Stats de Tropas
     document.getElementById('troop-level-display').textContent = `Nivel ${gameState.troopLevel}`;
     const baseStats = FACTIONS[faction].baseStats;
     const levelBonus = (gameState.troopLevel - 1) * 0.05;
@@ -1178,15 +1141,13 @@ function updateUI() {
     document.getElementById('troop-upgrade-cost').textContent = gameState.troopLevel < 10 ? `Costo: ${troopCost}` : 'Máx Nivel';
     document.getElementById('upgrade-troop-btn').disabled = gameState.troopLevel >= 10 || gameState.money < troopCost;
 
-
-    // Niveles de Acción
     ['attack', 'defend', 'produce'].forEach((action, index) => {
         const level = gameState.actionLevels[action];
         document.getElementById(`level-${action}`).textContent = `N${level}`;
-        
+
         const upgradeBtn = document.querySelector(`.upgrade-action-btn[data-action="${action}"]`);
         const costEl = document.getElementById(`${action}-upgrade-cost`);
-        
+
         if (level < 3) {
             const cost = ACTION_UPGRADE_COSTS[level - 1];
             costEl.textContent = `Costo: ${cost}`;
@@ -1197,64 +1158,53 @@ function updateUI() {
         }
     });
 
-    // ------------------------------------------------------------------
-    // Habilidad (Incluyendo la lógica de Tooltip/Hover)
-    // ------------------------------------------------------------------
-    
-    // Actualizar el contenido visual de la tarjeta de habilidad
     skillCardEl.style.borderColor = factionData.color;
     skillCardEl.innerHTML = `
         <img id="skill-icon-img" class="skill-card-icon" src="${skill.icon}" alt="Habilidad">
         <div class="skill-cooldown-text">C: ${gameState.skillCooldown}</div>
     `;
     skillCardEl.className = `skill-card ${gameState.skillCooldown === 0 ? 'available' : ''}`;
-    
-    // Solo asignar el listener de clic UNA VEZ.
+
     if (!skillCardEl.dataset.listener) {
         skillCardEl.addEventListener('click', handleSkillUse);
         skillCardEl.dataset.listener = 'true';
     }
 
-    // --- Lógica de Hover para Tooltip ---
-    // Usamos el contenedor principal skillCardEl para capturar el mouseover/mouseout
-    const tooltipElement = document.getElementById('skill-tooltip'); // Asumiendo que existe
-    
-    if (tooltipElement) {
-        // Adjuntar el evento de hover si aún no se ha hecho
-        if (!skillCardEl.dataset.hoverListener) {
-            
-            skillCardEl.addEventListener('mouseover', function(e) {
-                const skill = FACTIONS[gameState.playerFaction]?.skill;
-                if (skill) {
-                    // Mostrar la descripción
-                    tooltipElement.innerHTML = `
-                        <h4>${skill.name} (${skill.cooldown} turnos)</h4>
-                        <p>${skill.description}</p>
-                    `;
-                    // Posicionar el tooltip cerca del cursor
-                    tooltipElement.style.left = (e.pageX + 15) + 'px';
-                    tooltipElement.style.top = (e.pageY + 15) + 'px';
-                    tooltipElement.classList.remove('hidden');
-                }
-            });
+    const tooltipElement = document.getElementById('skill-tooltip');
 
-            skillCardEl.addEventListener('mouseout', function() {
-                // Ocultar la descripción
-                tooltipElement.classList.add('hidden');
-            });
+    if (tooltipElement && !skillCardEl.dataset.hoverListener) {
+        skillCardEl.addEventListener('mouseover', function(e) {
+            const skill = FACTIONS[gameState.playerFaction]?.skill;
+            if (skill) {
+                tooltipElement.innerHTML = `
+                    <h4>${skill.name} (${skill.cooldown} turnos)</h4>
+                    <p>${skill.description}</p>
+                `;
+                tooltipElement.style.left = (e.pageX + 15) + 'px';
+                tooltipElement.style.top = (e.pageY + 15) + 'px';
+                tooltipElement.classList.remove('hidden');
+            }
+        });
 
-            skillCardEl.dataset.hoverListener = 'true';
-        }
+        skillCardEl.addEventListener('mouseout', function() {
+            tooltipElement.classList.add('hidden');
+        });
+
+        skillCardEl.dataset.hoverListener = 'true';
     }
 }
 
-// Variable global para el elemento del tooltip
+/** @brief Elemento global de tooltip de nodos (#node-tooltip). */
 const tooltip = document.getElementById('node-tooltip');
 
+/**
+ * @brief Muestra información rápida del nodo en el tooltip.
+ * @param {HTMLElement|Event} nodeElement - elemento o evento para posicionar.
+ * @param {Node} nodeData - instancia de Node a mostrar.
+ */
 function showTooltip(nodeElement, nodeData) {
     const stats = nodeData.getStats();
-    
-    // Contenido del tooltip
+
     let content = `
         <p><strong>Nodo:</strong> ${nodeData.id}</p>
         <p><strong>Dueño:</strong> ${nodeData.owner}</p>
@@ -1273,88 +1223,103 @@ function showTooltip(nodeElement, nodeData) {
 
     tooltip.innerHTML = content;
     tooltip.classList.remove('hidden');
-    // Actualizar posición de inmediato
-    positionTooltip(nodeElement); 
+    positionTooltip(nodeElement);
 }
 
+/**
+ * @brief Oculta el tooltip global.
+ */
 function hideTooltip() {
     tooltip.classList.add('hidden');
 }
 
+/**
+ * @brief Posiciona el tooltip en pantalla (evita salirse de la ventana).
+ * @param {Event|HTMLElement} e - evento de mouse o elemento para posicionar.
+ */
 function positionTooltip(e) {
-    // Usamos el evento del mouse para seguir al cursor si se pasa como argumento
-    // o el elemento para posicionarlo sobre el nodo si se pasa el elemento.
     let x, y;
 
-    if (e.clientX && e.clientY) { // Si es un evento de mouse
+    if (e && e.clientX && e.clientY) {
         x = e.clientX;
         y = e.clientY;
-    } else if (e.getBoundingClientRect) { // Si es un elemento DOM
+    } else if (e && e.getBoundingClientRect) {
         const rect = e.getBoundingClientRect();
         x = rect.left + window.scrollX + rect.width / 2;
-        y = rect.top + window.scrollY - 10; // Posición justo encima
+        y = rect.top + window.scrollY - 10;
+    } else {
+        x = window.innerWidth / 2;
+        y = window.innerHeight / 2;
     }
-    
-    // Ajustar la posición para evitar que el tooltip se salga de la pantalla
-    const tooltipWidth = tooltip.offsetWidth;
-    const tooltipHeight = tooltip.offsetHeight;
-    
-    // Posición por defecto: ligeramente a la derecha e inferior del cursor/nodo
+
+    const tooltipWidth = tooltip.offsetWidth || 200;
+    const tooltipHeight = tooltip.offsetHeight || 100;
+
     let finalX = x + 15;
     let finalY = y + 15;
-    
-    // Ajuste X: Si se va a salir por la derecha, muévelo a la izquierda del cursor
+
     if (finalX + tooltipWidth > window.innerWidth) {
         finalX = x - tooltipWidth - 15;
     }
-    // Ajuste Y: Si se va a salir por abajo, muévelo encima del cursor
     if (finalY + tooltipHeight > window.innerHeight) {
         finalY = window.innerHeight - tooltipHeight - 10;
     }
-
 
     tooltip.style.left = `${finalX}px`;
     tooltip.style.top = `${finalY}px`;
 }
 
+/* ========================================================================
+   FIN DE JUEGO Y UTILIDADES
+   ======================================================================== */
+
+/**
+ * @brief Comprueba condiciones de fin de juego (victoria/derrota).
+ * @return {boolean} true si el juego terminó.
+ */
 function checkGameOver() {
     const nodes = Object.values(gameState.nodes);
-    
-    // 1. Contar nodos por facción
+
     const playerNodes = nodes.filter(n => n.owner === gameState.playerFaction).length;
     const aiNodes = nodes.filter(n => n.owner === gameState.aiFaction).length;
     const totalNodes = nodes.length;
 
-    // 2. Condición de Victoria (El jugador gana)
     if (aiNodes === 0 || playerNodes === totalNodes) {
         endGame('¡VICTORIA!', 'Has conquistado el territorio y derrotado a la facción enemiga.');
         return true;
     }
 
-    // 3. Condición de Derrota (La IA gana)
     if (playerNodes === 0) {
         endGame('¡DERROTA!', 'Tu facción ha sido completamente eliminada.');
         return true;
     }
 
-    return false; // El juego continúa
+    return false;
 }
 
-// Función para manejar el fin del juego (Asume que tienes un div #end-game-screen)
+/**
+ * @brief Muestra pantalla final y deshabilita controles básicos.
+ * @param {string} message - título o mensaje principal.
+ * @param {string} [details] - detalles opcionales a mostrar.
+ */
 function endGame(message, details) {
     document.getElementById('end-game-message').innerHTML = `
         <h1>${message}</h1>
-        <p>${details}</p>
+        <p>${details || ''}</p>
     `;
     document.getElementById('end-game-screen').classList.remove('hidden');
-    // Deshabilitar controles si es necesario
     document.getElementById('control-panel').style.pointerEvents = 'none';
 }
 
+/**
+ * @brief Ejecuta la transferencia de tropas entre nodos.
+ * @param {Node} sourceNode - nodo origen.
+ * @param {Node} targetNode - nodo destino.
+ * @param {number} amount - cantidad solicitada a transferir.
+ */
 function executeTransfer(sourceNode, targetNode, amount) {
     const targetStats = targetNode.getStats();
 
-    // 1. Calcular el espacio disponible en el destino
     const maxCapacity = targetStats.space;
     const currentTroops = targetNode.troops;
     const availableSpace = maxCapacity - currentTroops;
@@ -1365,26 +1330,26 @@ function executeTransfer(sourceNode, targetNode, amount) {
         displayMessage("El nodo destino está lleno o no hay espacio disponible.", 'error');
         return;
     }
-    
-    // 2. Ejecutar el movimiento
+
     sourceNode.troops -= actualTransfer;
     targetNode.troops += actualTransfer;
 
-    // 3. Actualizar la UI
     sourceNode.updateVisuals();
     targetNode.updateVisuals();
     updateUI();
     displayMessage(`Transferidos ${actualTransfer} tropas de ${sourceNode.name} a ${targetNode.name}.`, 'success');
 }
 
-// La función updateUI debe asegurarse de que el elemento de la habilidad esté asociado a su evento.
+/**
+ * @brief Configura el hover del tooltip de la tarjeta de habilidad (skill).
+ * @note Debe llamarse después de que el DOM y el estado estén inicializados.
+ */
 function setupSkillHover() {
-    const skillElement = document.getElementById('skill-card'); // O el elemento que quieras usar como disparador
+    const skillElement = document.getElementById('skill-card');
     const tooltipElement = document.getElementById('skill-tooltip');
-    
+
     if (!skillElement || !tooltipElement) return;
 
-    // Función que se dispara al pasar el mouse por encima
     skillElement.onmouseover = function(e) {
         const faction = gameState.playerFaction;
         const skill = FACTIONS[faction]?.skill;
@@ -1394,18 +1359,44 @@ function setupSkillHover() {
                 <h4>${skill.name} (${skill.cooldown} turnos)</h4>
                 <p>${skill.description}</p>
             `;
-            // Posicionar el tooltip (ej. a la izquierda o debajo del mouse)
             tooltipElement.style.left = (e.pageX + 10) + 'px';
             tooltipElement.style.top = (e.pageY - 10) + 'px';
             tooltipElement.classList.remove('hidden');
         }
     };
 
-    // Función que se dispara al quitar el mouse
     skillElement.onmouseout = function() {
         tooltipElement.classList.add('hidden');
     };
 }
 
-// Llama a esta función al inicio del juego, después de inicializar el HTML y el estado.
+/* Inicializar hover de skill (si el DOM ya tiene los elementos) */
 setupSkillHover();
+
+/* ========================================================================
+   Mensajes / utilidades
+   ======================================================================== */
+
+/**
+ * @brief Muestra un mensaje temporal en pantalla (elemento #message-box requerido).
+ * @param {string} text - texto a mostrar.
+ * @param {string} type - 'info'|'success'|'warning'|'error' (clase CSS).
+ */
+function displayMessage(text, type = 'info') {
+    const box = document.getElementById('message-box');
+    if (!box) {
+        console.log(`[${type}] ${text}`);
+        return;
+    }
+    box.textContent = text;
+
+    box.className = '';
+    box.classList.add(type);
+
+    box.classList.remove('hidden');
+    setTimeout(() => box.classList.add('hidden'), 2000);
+}
+
+/* ========================================================================
+   FIN DEL ARCHIVO
+   ======================================================================== */

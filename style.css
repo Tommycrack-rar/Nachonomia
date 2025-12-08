@@ -1,31 +1,59 @@
-/* Importacion de Fuentes */
+/**
+ * @file style.css
+ * @brief Hoja de estilos principal del juego de estrategia por turnos "Nachonomía".
+ *
+ * Contiene la definición completa de:
+ * - Paleta de colores del juego
+ * - Estilos del mapa, nodos y tooltips
+ * - Panel lateral, botones y recursos
+ * - Animaciones del juego
+ * - Estilos generales de tipografía y layout
+ *
+ * @author Juan Bohorquez (jbohorquezsa@unal.edu.co)
+ * @author Julian Quintero (julquinteroca@unal.edu.co)
+ * @author Tomas Suarez (tsuarezl@unal.edu.co)
+ */
+
+/** 
+ * @section Fuentes Importadas
+ * @brief Importa tipografías usadas en el UI del juego.
+ */
 @import url('https://fonts.googleapis.com/css2?family=Stardos+Stencil:wght@400;700&family=Roboto+Mono:wght@400;700&family=Press+Start+2P&display=swap');
 
-/* Colores de la paleta */
+/**
+ * @section PaletaColores
+ * @brief Declara las variables CSS con los colores temáticos del juego.
+ */
 :root {
-    /* Fondo y Mapa */
+    /** Fondo del mapa principal */
     --color-beige-claro: #F0EADC;
+    /** Verde musgo usado en elementos del mapa */
     --color-verde-musgo: #6A8553;
+    /** Gris pizarra para tonos neutros */
     --color-gris-pizarra: #8C928A;
-    --color-verde-oscuro: #3A4D34; /* Fondo Barra Lateral */
+    /** Verde oscuro para fondo del panel */
+    --color-verde-oscuro: #3A4D34;
     
-    /* UI y Texto */
+    /** Colores de interfaz */
     --color-dorado: #D4AF37;
     --color-blanco-hueso: #F8F1E7;
-    --color-rojo-carmesi: #B22222; /* Ataque */
-    --color-azul-cobalto: #0047AB; /* Defensa */
-    --color-naranja-quemado: #CC5500; /* Moneda */
+    --color-rojo-carmesi: #B22222; 
+    --color-azul-cobalto: #0047AB;
+    --color-naranja-quemado: #CC5500;
     --color-amarillo-fin-turno: #FFC300;
     --color-neutral: #555555;
     
-    /* Facciones */
+    /** Colores por facción */
     --color-esmad: #000080;
     --color-capuchos: #8B0000;
     --color-minga: #006400;
     --color-neutro: #8C928A;
 }
 
-/* Base */
+/**
+ * @section BaseUI
+ * @brief Estilos globales aplicados a toda la página.
+ */
 body {
     font-family: 'Roboto Mono', monospace;
     background-color: var(--color-beige-claro);
@@ -39,39 +67,49 @@ body {
     overflow: hidden;
 }
 
+/** Estilos para encabezados */
 h1, h2, h3 {
     font-family: 'Stardos Stencil', cursive;
     color: var(--color-dorado);
 }
 
-/* Contenedor Principal y Área de Juego */
+/**
+ * @section GameContainer
+ * @brief Contenedor principal del mapa y la interfaz. 
+ */
 #game-container {
-    width: 1216px; /* Ancho total (Mapa: 920 + Panel: 296) */
+    width: 1216px; 
     height: 880px;
     box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
     position: relative;
-    /* La imagen de fondo cubre todo el contenedor, incluyendo la barra lateral */
     background-image: url('assets/mapa_base.jpg');
     background-size: 1216px 880px; 
     background-position: left top;
     overflow: hidden;
 }
 
+/** Área donde se renderizan los nodos y conexiones */
 #game-area {
     position: relative;
     width: 1216px;
     height: 880px;
 }
 
-/* Lienzo de Conexiones */
+/**
+ * @section CanvasConexiones
+ * @brief Lienzo donde se dibujan las líneas entre nodos.
+ */
 #connection-canvas {
     position: absolute;
     top: 0;
     left: 0;
-    z-index: 1; /* Bajo los nodos */
+    z-index: 1;
 }
 
-/* Nodos (Hexágonos) */
+/**
+ * @section Nodos
+ * @brief Estilos de los hexágonos que representan zonas del mapa.
+ */
 .node {
     position: absolute;
     width: 48px;
@@ -87,15 +125,20 @@ h1, h2, h3 {
     z-index: 10;
 }
 
+/** Animación de hover en nodos */
 .node:hover {
     transform: scale(1.05);
     filter: brightness(1.2);
 }
 
+/** Nodo seleccionado */
 .node.selected {
     box-shadow: 0 0 15px 5px var(--color-dorado);
 }
 
+/**
+ * @brief Contador de tropas dentro del nodo.
+ */
 .node-troop-count {
     font-family: 'Press Start 2P', cursive;
     font-size: 14px;
@@ -104,6 +147,7 @@ h1, h2, h3 {
     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
 }
 
+/** Icono visual dentro del nodo */
 .node-icon {
     position: absolute;
     width: 32px;
@@ -112,7 +156,10 @@ h1, h2, h3 {
     z-index: 5;
 }
 
-/* Tooltip (Nombre de Zona) */
+/**
+ * @section Tooltips
+ * @brief Despliega el nombre y datos del nodo al pasar el mouse.
+ */
 .node-tooltip {
     position: absolute;
     bottom: 100%;
@@ -131,17 +178,24 @@ h1, h2, h3 {
     z-index: 100;
 }
 
+/** Tooltip visible al hacer hover */
 .node:hover .node-tooltip {
     opacity: 1;
 }
 
-/* Colores de Facciones para Nodos */
+/**
+ * @section ColoresFaccion
+ * @brief Colores que representan a cada facción del juego.
+ */
 .ESMAD { background-color: rgba(0, 0, 128, 0.5); border-color: var(--color-esmad); }
 .Capuchos { background-color: rgba(139, 0, 0, 0.5); border-color: var(--color-capuchos); }
 .Minga { background-color: rgba(0, 100, 0, 0.5); border-color: var(--color-minga); }
 .Neutral { background-color: rgba(140, 146, 138, 0.3); border-color: var(--color-neutro); }
 
-/* Indicador de Turno */
+/**
+ * @section IndicadorTurno
+ * @brief Cuadro que muestra el turno actual y a quién pertenece.
+ */
 #turn-indicator {
     position: absolute;
     top: 10px;
@@ -155,17 +209,24 @@ h1, h2, h3 {
     z-index: 50;
     border: 2px solid var(--color-dorado);
 }
-#turn-text { font-size: 16px; font-weight: bold; }
-#turn-counter { font-size: 20px; color: var(--color-dorado); font-family: 'Press Start 2P', cursive; }
 
-/* Panel de Control (Posicionado a la derecha del mapa) */
+#turn-text { font-size: 16px; font-weight: bold; }
+#turn-counter { 
+    font-size: 20px;
+    color: var(--color-dorado);
+    font-family: 'Press Start 2P', cursive;
+}
+
+/**
+ * @section PanelLateral
+ * @brief Panel derecho donde se muestran recursos, habilidades y botones.
+ */
 #control-panel {
     position: absolute;
     top: 0;
-    left: 920px; /* Inicia donde termina el mapa (920px) */
-    width: 296px; /* 1216px - 920px = 296px */
+    left: 920px; 
+    width: 296px;
     height: 880px;
-    /* Fondo oscuro semitransparente sobre el área de la barra lateral de la imagen de fondo */
     background-color: rgba(58, 77, 52, 0.8); 
     padding: 15px;
     box-sizing: border-box;
@@ -174,6 +235,10 @@ h1, h2, h3 {
     z-index: 20;
 }
 
+
+/**
+ * @brief Sección interior del panel lateral.
+ */
 .panel-section {
     background-color: rgba(0, 0, 0, 0.3);
     padding: 10px;
@@ -181,22 +246,31 @@ h1, h2, h3 {
     border-radius: 5px;
 }
 
+/** Información de la facción del jugador */
 #faction-info {
     text-align: center;
     padding-bottom: 10px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
+
 #faction-icon { width: 64px; height: 64px; margin-bottom: 5px; }
 
-/* Recursos */
+/**
+ * @section Recursos
+ * @brief Estilos para los recursos del jugador.
+ */
 .resource-icon { width: 24px; height: 24px; vertical-align: middle; }
+
 #current-money { 
     font-family: 'Press Start 2P', cursive; 
     font-size: 18px; 
     color: var(--color-naranja-quemado);
 }
 
-/* Botones de Acciones */
+/**
+ * @section BotonesAcciones
+ * @brief Estilos de las acciones: ataque, defensa, producir y mejorar.
+ */
 .action-item {
     margin-bottom: 10px;
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -207,6 +281,8 @@ h1, h2, h3 {
     align-items: center;
     justify-content: space-between;
 }
+
+/** Botón principal de acción */
 .action-btn {
     width: 150px;
     height: 40px;
@@ -219,23 +295,31 @@ h1, h2, h3 {
     transition: background-color 0.1s, box-shadow 0.3s;
     margin-right: 10px;
 }
+
+/** Hover visual */
 .action-btn:hover:not(:disabled) {
     box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
 }
+
+/** Estado deshabilitado */
 .action-btn:disabled {
     cursor: not-allowed;
     opacity: 0.5;
 }
 
+/** Colores por tipo de acción */
 .attack-color { background-color: var(--color-rojo-carmesi); }
 .defend-color { background-color: var(--color-azul-cobalto); }
 .produce-color { background-color: var(--color-minga); }
 
+/** Nivel actual de la acción */
 .action-level {
     font-family: 'Press Start 2P', cursive;
     color: var(--color-dorado);
     margin: 0;
 }
+
+/** Botones de mejora */
 .upgrade-action-btn, .upgrade-btn {
     background-color: var(--color-naranja-quemado);
     color: var(--color-blanco-hueso);
@@ -248,9 +332,12 @@ h1, h2, h3 {
     width: 100%;
     margin-top: 5px;
 }
+
 .upgrade-action-btn:hover:not(:disabled), .upgrade-btn:hover:not(:disabled) {
     background-color: #ff8c00;
 }
+
+/** Costo que aparece debajo del botón */
 .upgrade-cost {
     font-size: 11px;
     color: var(--color-dorado);
@@ -258,26 +345,35 @@ h1, h2, h3 {
     margin: 3px 0 0 0;
 }
 
-/* Habilidad (Carta) */
+/**
+ * @section Habilidad
+ * @brief Carta visual que representa la habilidad especial del jugador.
+ */
 .skill-card {
     width: 90px;
     height: 120px;
     background-color: rgba(0, 0, 0, 0.5);
-    border: 2px solid var(--color-esmad); /* Se cambia por JS */
+    border: 2px solid var(--color-esmad);
     border-radius: 5px;
     text-align: center;
     margin: 0 auto;
     position: relative;
     cursor: pointer;
 }
+
+/** Efecto cuando la habilidad está disponible */
 .skill-card.available {
     box-shadow: 0 0 15px 5px var(--color-dorado);
 }
+
+/** Icono dentro de la carta */
 .skill-card-icon {
     width: 64px;
     height: 64px;
     margin-top: 10px;
 }
+
+/** Texto del cooldown */
 .skill-cooldown-text {
     position: absolute;
     bottom: 5px;
@@ -287,7 +383,10 @@ h1, h2, h3 {
     font-family: 'Press Start 2P', cursive;
 }
 
-/* Botón de Terminar Turno */
+/**
+ * @section BotonFinTurno
+ * @brief Botón grande usado para cambiar al siguiente turno.
+ */
 .end-turn-btn {
     width: 260px;
     height: 50px;
@@ -301,11 +400,15 @@ h1, h2, h3 {
     margin-top: 20px;
     transition: background-color 0.2s;
 }
+
 .end-turn-btn:hover {
     background-color: #FFEB3B;
 }
 
-/* Overlay de Inicio/Fin de Juego */
+/**
+ * @section Overlays
+ * @brief Pantallas de inicio y final del juego.
+ */
 .overlay {
     position: absolute;
     top: 0;
@@ -320,7 +423,10 @@ h1, h2, h3 {
     z-index: 200;
     text-align: center;
 }
+
 .overlay h1 { font-size: 40px; }
+
+/** Botones de elección de facción */
 #faction-selection button {
     padding: 15px 30px;
     margin: 10px;
@@ -332,10 +438,14 @@ h1, h2, h3 {
     font-family: 'Stardos Stencil', cursive;
     border-radius: 5px;
 }
+
+/** Clase de utilidad */
 .hidden { display: none !important; }
 
-
-/* Animaciones de Habilidad */
+/**
+ * @section Animaciones
+ * @brief Efectos visuales para habilidades, ataque y conquista.
+ */
 .skill-animation {
     position: absolute;
     z-index: 100;
@@ -344,16 +454,23 @@ h1, h2, h3 {
     opacity: 0;
     animation-timing-function: ease-out;
 }
-/* Animación de Conquista */
+
+/** Animación para cuando un nodo es conquistado */
 @keyframes flash-conquer {
     0% { box-shadow: 0 0 20px 5px white; }
     50% { box-shadow: 0 0 20px 10px var(--color-dorado); }
     100% { box-shadow: none; }
 }
+
+/** Se aplica cuando se conquista un nodo */
 .conquered-animation {
     animation: flash-conquer 0.5s ease-out;
 }
 
+/**
+ * @section TooltipNodo
+ * @brief Tooltip grande que muestra estadísticas del nodo.
+ */
 #node-tooltip {
     position: absolute;
     background-color: rgba(0, 0, 0, 0.85);
@@ -361,8 +478,8 @@ h1, h2, h3 {
     padding: 8px 12px;
     border-radius: 5px;
     font-size: 14px;
-    z-index: 1000; /* Asegura que esté sobre otros elementos */
-    pointer-events: none; /* Crucial para no interferir con los clics */
+    z-index: 1000;
+    pointer-events: none;
     line-height: 1.4;
     min-width: 150px;
 }
@@ -372,30 +489,26 @@ h1, h2, h3 {
 }
 
 #node-tooltip strong {
-    color: #ffcc00; /* Color distintivo para valores */
+    color: #ffcc00;
 }
 
-/* Estilos internos del tooltip */
 #node-tooltip p {
     margin: 0;
     padding: 2px 0;
 }
 
-/* 1. Definición del efecto de pulso para la selección */
+/**
+ * @section AnimacionSeleccionNodo
+ * @brief Efecto de pulso al seleccionar un nodo.
+ */
 @keyframes node-pulse {
     0% { transform: scale(1); box-shadow: 0 0 5px rgba(255, 255, 0, 0.6); }
     50% { transform: scale(1.1); box-shadow: 0 0 15px rgba(255, 255, 0, 1); }
     100% { transform: scale(1); box-shadow: 0 0 5px rgba(255, 255, 0, 0.6); }
 }
 
-/* 2. Clase que aplica la animación al nodo seleccionado */
 .node.selected {
-    /* Mantiene el borde de selección estático (del código anterior) */
     border: 3px solid #FFD700; 
-    
-    /* Aplica la animación */
     animation: node-pulse 1.5s infinite ease-in-out;
-    
-    /* Asegura que el nodo animado esté sobre otros elementos */
     z-index: 500; 
 }
