@@ -7,7 +7,6 @@
 
 **Instalacion📄:** En el repositorio de GitHub, descarga mediante el boton Code en la esquina superior derecha, y selecciona descargar el archivo **.zip**
 
-En caso de que no sea posible, descargue los archivos del juego individualmente tal que queden organizados de la siguiente manera:
 BIENVENIDO A NACHONOMÍA
 
 Este es un juego de estrategia por turnos 1 vs IA ambientado en el mapa de la Universidad Nacional representado como un grafo de 17 zonas. 
